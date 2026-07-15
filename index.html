@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDF Explorer</title>
+<link rel="icon" type="image/png" href="/icon.png">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
+    --txt:#e6e9ef; --muted:#9aa3b2; --accent:#5b9dff; --accent2:#36c08f;
+    --row:#13161c; --rowalt:#161a21; --rowhover:#222838; --rowsel:#2a3550;
+    --rowh:24px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  button,input,select{font:inherit;color:inherit}
+  .app{display:flex;flex-direction:column;height:100vh}
+  header{display:flex;align-items:center;gap:14px;padding:8px 14px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex:none}
+  header h1{font-size:14px;font-weight:600;margin:0;letter-spacing:.3px}
+  header img.appicon{height:22px;width:22px;object-fit:contain;border-radius:5px}
+  header .file{color:var(--accent);font-weight:600}
+  header .count{color:var(--muted)}
+  header .spacer{flex:1}
+  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+    padding:6px 11px;cursor:pointer;color:var(--txt)}
+  .btn:hover{border-color:var(--accent);background:#222838}
+  .btn.sm{padding:5px 8px;font-size:12px}
+  .btn.primary{border-color:var(--accent2);color:#eafff6}
+  .btn.primary:hover{background:#1d3b31;border-color:var(--accent2)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .tabs{display:flex;gap:3px;background:var(--panel);flex:none;
+    border-bottom:1px solid var(--line);padding:4px 8px 0;overflow-x:auto}
+  .tab{padding:7px 14px;cursor:pointer;color:var(--muted);
+    border:1px solid transparent;border-bottom:none;border-radius:7px 7px 0 0;
+    white-space:nowrap;font-size:12.5px;max-width:280px;overflow:hidden;
+    text-overflow:ellipsis}
+  .tab:hover{color:var(--txt);background:var(--panel2)}
+  .tab.active{color:var(--txt);background:var(--bg);border-color:var(--line);
+    font-weight:600}
+  .tab .x{margin-left:8px;color:var(--muted);font-weight:700;border-radius:3px;
+    padding:0 3px}
+  .tab .x:hover{color:#fff;background:#c0392b}
+  .tab.add{font-weight:700;color:var(--accent2)}
+  /* modal file browser */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
+    display:none;align-items:center;justify-content:center}
+  .mask.open{display:flex}
+  .dlg{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    width:min(760px,92vw);height:min(560px,88vh);display:flex;
+    flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.6)}
+  .dlg header{background:transparent;border:0;padding:12px 14px 8px}
+  .dlg h2{margin:0;font-size:14px;font-weight:600}
+  .crumbs{display:flex;gap:6px;align-items:center;padding:0 14px 8px;
+    flex-wrap:wrap}
+  .crumbs input{flex:1;min-width:220px;margin:0}
+  .fbody{flex:1;overflow:auto;margin:0 14px;border:1px solid var(--line);
+    border-radius:8px;background:var(--panel2)}
+  .fitem{display:flex;align-items:center;gap:9px;padding:6px 10px;
+    cursor:pointer;border-bottom:1px solid #0c0e12}
+  .fitem:hover{background:var(--rowhover)}
+  .fitem .ic{width:16px;text-align:center;opacity:.85}
+  .fitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fitem .sz{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .fitem.on{background:var(--rowsel)}
+  .dlgfoot{display:flex;gap:8px;align-items:center;padding:12px 14px}
+  .dlgfoot .sel{color:var(--muted);flex:1;font-size:12px}
+  .empty-state{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:12px;color:var(--muted);
+    z-index:6}
+  .empty-state .big{font-size:15px;color:var(--txt)}
+  .main{display:flex;flex:1;min-height:0}
+  aside{width:268px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+    overflow-y:auto;padding:12px;padding-bottom:52px}
+  .aboutbar{position:fixed;left:0;bottom:0;width:268px;padding:8px 12px;
+    background:var(--panel);border-top:1px solid var(--line);
+    border-right:1px solid var(--line);z-index:9}
+  .aboutbar .btn{width:100%}
+  /* about dialog content */
+  .about{padding:0 16px 4px;overflow:auto;line-height:1.55}
+  .about h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--accent);margin:18px 0 8px}
+  .about h3:first-child{margin-top:6px}
+  .about p{margin:0 0 10px;color:#cfd6e4}
+  .about dl{display:grid;grid-template-columns:132px 1fr;gap:5px 12px;margin:0 0 6px}
+  .about dt{color:var(--txt);font-weight:600}
+  .about dd{margin:0;color:#aab3c2}
+  .about code{background:var(--panel2);border:1px solid var(--line);
+    border-radius:4px;padding:0 4px;font-size:12px}
+  .about .pill{display:inline-block;width:9px;height:9px;border-radius:2px;
+    margin-right:6px;vertical-align:middle}
+  aside h3{font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--muted);margin:16px 0 7px}
+  aside h3:first-child{margin-top:2px}
+  .grp{display:flex;align-items:center;gap:7px;padding:3px 4px;border-radius:5px;cursor:pointer}
+  .grp:hover{background:var(--panel2)}
+  .grp .c{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11px}
+  .grp.sub{padding-left:20px;font-size:12px}
+  .swatch{width:9px;height:9px;border-radius:2px;flex:none}
+  input[type=text],input[type=number],select{width:100%;background:var(--panel2);
+    border:1px solid var(--line);border-radius:5px;padding:5px 7px;margin-bottom:6px}
+  .row2{display:flex;gap:6px}
+  .row2 input{margin-bottom:6px}
+  label.chk{display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:4px}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+  .saved{display:flex;flex-direction:column;gap:3px;margin-bottom:6px}
+  .pri{display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;
+    cursor:pointer;background:var(--panel2);border:1px solid var(--line)}
+  .pri:hover{border-color:var(--accent)}
+  .pri .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pri .del{color:var(--muted);cursor:pointer;padding:0 3px;font-weight:700}
+  .pri .del:hover{color:#f472b6}
+  .empty{color:var(--muted);font-size:11px;font-style:italic;margin-bottom:6px}
+  .tablewrap{flex:1;min-width:0;display:flex;flex-direction:column}
+  .scroll{flex:1;overflow:auto;position:relative}
+  .thead{display:flex;position:sticky;top:0;z-index:5;background:var(--panel2);
+    border-bottom:1px solid var(--line)}
+  .th{flex:none;padding:6px 8px;font-weight:600;font-size:12px;color:var(--muted);
+    border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;user-select:none}
+  .th:hover{color:var(--txt)}
+  .th .ar{color:var(--accent);margin-left:3px}
+  .vport{position:relative}
+  .tr{display:flex;position:absolute;left:0;right:0;height:var(--rowh);
+    align-items:center;border-bottom:1px solid #0c0e12}
+  .tr:nth-child(even){background:var(--rowalt)}
+  .tr:nth-child(odd){background:var(--row)}
+  .tr:hover{background:var(--rowhover)}
+  .tr.sel{background:var(--rowsel)}
+  .td{flex:none;padding:0 8px;height:var(--rowh);line-height:var(--rowh);
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+    font-variant-numeric:tabular-nums;border-right:1px solid #0c0e12}
+  .td.msg{font-variant-numeric:normal;color:#cfd6e4}
+  .badge{display:inline-block;padding:0 6px;border-radius:9px;font-size:10.5px;
+    font-weight:700;line-height:16px;color:#0c0e12}
+  .details{flex:none;height:0;overflow:hidden;background:var(--panel);
+    border-top:1px solid var(--line);transition:height .12s}
+  .details.open{height:190px;overflow:auto;padding:10px 14px}
+  .details table{border-collapse:collapse}
+  .details td{padding:2px 12px 2px 0;vertical-align:top}
+  .details td.k{color:var(--muted);white-space:nowrap}
+  .details .raw{margin-top:8px;padding:8px;background:#0c0e12;border-radius:6px;
+    white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;
+    color:#cbd3e1;max-height:90px;overflow:auto}
+  .menu{position:absolute;background:var(--panel2);border:1px solid var(--line);
+    border-radius:8px;padding:6px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    display:none;min-width:170px}
+  .menu.open{display:block}
+  .menu label{display:flex;gap:7px;align-items:center;padding:3px 5px;cursor:pointer}
+  .mtitle{font-size:10px;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--muted);padding:6px 8px 3px}
+  .mi{padding:6px 10px;border-radius:5px;cursor:pointer;white-space:nowrap}
+  .mi:hover{background:#2a3550}
+  .loading{position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;color:var(--muted);font-size:14px;
+    background:rgba(15,17,21,.6);z-index:8}
+  .loading.hidden{display:none}
+  .hint{color:var(--muted);font-size:11px;margin:-2px 0 8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <img class="appicon" src="/icon.png" alt="" onerror="this.remove()">
+    <h1>EDF&nbsp;Explorer</h1>
+    <span class="file" id="fname">…</span>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="colsBtn">Columns ▾</button>
+    <button class="btn" id="expBtn">Export ▾</button>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="main">
+    <aside>
+      <h3>Presets</h3>
+      <div class="presets">
+        <button class="btn sm" data-preset="reset">All</button>
+        <button class="btn sm" data-preset="events">Events only</button>
+        <button class="btn sm" data-preset="messages">Messages only</button>
+        <button class="btn sm" data-preset="clean">Hide setup</button>
+      </div>
+
+      <h3>Saved presets</h3>
+      <div class="saved" id="savedPresets"></div>
+      <button class="btn sm" id="savePreset" style="width:100%">Save current…</button>
+
+      <h3>Categories</h3>
+      <div id="groups"></div>
+
+      <h3>Message kinds</h3>
+      <div id="kinds"></div>
+
+      <h3>Message filter</h3>
+      <input type="text" id="msgInc" placeholder="message contains…">
+      <input type="text" id="msgExc" placeholder="message excludes…">
+      <label class="chk"><input type="checkbox" id="msgRe"> regex</label>
+
+      <h3>Eye</h3>
+      <select id="eyeSel">
+        <option value="">All</option><option value="R">Right</option>
+        <option value="L">Left</option>
+      </select>
+
+      <h3>Timestamps</h3>
+      <select id="tsMode">
+        <option value="abs">Absolute</option>
+        <option value="rel">Relative to file start</option>
+      </select>
+
+      <h3>Time range</h3>
+      <div class="row2">
+        <input type="number" id="tmin" placeholder="min">
+        <input type="number" id="tmax" placeholder="max">
+      </div>
+      <div class="hint" id="trange"></div>
+
+      <h3>Min duration (ms)</h3>
+      <div class="row2">
+        <input type="number" id="durFix" placeholder="fixation">
+        <input type="number" id="durSacc" placeholder="saccade">
+      </div>
+
+      <h3>Global search</h3>
+      <input type="text" id="search" placeholder="search raw line…">
+      <label class="chk"><input type="checkbox" id="searchRe"> regex</label>
+    </aside>
+    <div class="aboutbar"><button class="btn sm" id="aboutBtn">About / Help</button></div>
+
+    <div class="tablewrap">
+      <div class="scroll" id="scroll">
+        <div class="thead" id="thead"></div>
+        <div class="vport" id="vport"></div>
+        <div class="loading hidden" id="loading">Loading…</div>
+        <div class="empty-state" id="emptyState" style="display:none">
+          <div class="big">No files open</div>
+          <button class="btn" id="emptyAdd">Add EDF files…</button>
+        </div>
+      </div>
+      <div class="details" id="details"></div>
+    </div>
+    <div class="menu" id="colmenu" style="right:14px;top:46px"></div>
+    <div class="menu" id="expmenu" style="right:14px;top:46px">
+      <div class="mtitle">This file</div>
+      <div class="mi" data-scope="one" data-fmt="asc">ASC (.asc)</div>
+      <div class="mi" data-scope="one" data-fmt="csv">CSV (.csv)</div>
+      <div class="mi" data-scope="one" data-fmt="tsv">TSV (.tsv)</div>
+      <div class="mtitle" id="allTitle">All loaded files (ZIP)</div>
+      <div class="mi" data-scope="all" data-fmt="asc">ASC × all</div>
+      <div class="mi" data-scope="all" data-fmt="csv">CSV × all</div>
+      <div class="mi" data-scope="all" data-fmt="tsv">TSV × all</div>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="mask">
+  <div class="dlg">
+    <header><h2>Add EDF files</h2></header>
+    <div class="crumbs">
+      <button class="btn sm" id="fbUp">↑ Up</button>
+      <button class="btn sm" id="fbHome">Home</button>
+      <input type="text" id="fbPath" spellcheck="false"
+             title="Type or paste a folder path, then press Enter">
+      <select id="fbDrives" style="width:auto;margin:0;display:none"></select>
+    </div>
+    <div class="fbody" id="fbList"></div>
+    <div class="dlgfoot">
+      <span class="sel" id="fbSel">Nothing selected</span>
+      <button class="btn" id="fbCancel">Cancel</button>
+      <button class="btn primary" id="fbOpen">Open selected</button>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="aboutMask">
+  <div class="dlg">
+    <header><h2>About gama &mdash; EyeLink EDF Explorer</h2></header>
+    <div class="about">
+      <p>gama opens SR&nbsp;Research EyeLink <code>.EDF</code> recordings and shows them
+      the way SR's own <code>edf2asc</code> would convert them &mdash; as event lines
+      (fixations, saccades, blinks, messages) &mdash; but in a filterable,
+      spreadsheet-like table. Nothing is modified: the file on disk is only read.
+      Exporting everything with no filters reproduces a byte-identical ASC.</p>
+
+      <h3>Files &amp; tabs</h3>
+      <p>Each open recording gets a tab. <b>+</b> opens the file browser to add
+      more; <b>&#10005;</b> on a tab closes that file. Filter settings are shared
+      across tabs, so you can set up a view once and click between files to
+      compare them.</p>
+
+      <h3>Presets</h3>
+      <dl>
+        <dt>All</dt><dd>Clear every filter and show all lines.</dd>
+        <dt>Events only</dt><dd>Fixations, saccades and blinks; hides messages and setup.</dd>
+        <dt>Messages only</dt><dd>Just MSG lines (your experiment's own markers).</dd>
+        <dt>Hide setup</dt><dd>Everything except the file preamble.</dd>
+        <dt>Saved presets</dt><dd>Store the current filters (including timestamp
+          mode and visible columns) under a name and reload it later. They are
+          saved as JSON files in the <code>presets</code> folder next to gama, so
+          they persist and can be shared. <b>&#10005;</b> deletes one.</dd>
+      </dl>
+
+      <h3>Categories</h3>
+      <p>Show or hide whole classes of line. Counts are for the current file.</p>
+      <dl>
+        <dt><span class="pill" style="background:#6b7280"></span>PREAMBLE</dt>
+          <dd>File header written by the tracker (recording date, version).</dd>
+        <dt><span class="pill" style="background:#a78bfa"></span>HEADER</dt>
+          <dd>Per-recording START block: eye tracked, sample rate, tracking mode.</dd>
+        <dt><span class="pill" style="background:#f472b6"></span>END</dt>
+          <dd>End of a recording block, with its average screen resolution.</dd>
+        <dt><span class="pill" style="background:#fbbf24"></span>INPUT</dt>
+          <dd>Parallel-port / trigger values received by the tracker.</dd>
+        <dt><span class="pill" style="background:#5b9dff"></span>MSG</dt>
+          <dd>Messages sent to the tracker (usually by your experiment script).</dd>
+        <dt><span class="pill" style="background:#36c08f"></span>FIX</dt>
+          <dd>Fixations: SFIX (start) and EFIX (end, with the summary values).</dd>
+        <dt><span class="pill" style="background:#ff8a5b"></span>SACC</dt>
+          <dd>Saccades: SSACC (start) and ESACC (end, with amplitude/velocity).</dd>
+        <dt><span class="pill" style="background:#e879f9"></span>BLINK</dt>
+          <dd>Blinks: SBLINK / EBLINK. Blinks inside one saccade are merged, as edf2asc does.</dd>
+      </dl>
+
+      <h3>Message kinds</h3>
+      <p>MSG lines are auto-sorted so tracker chatter can be hidden separately
+      from your own markers.</p>
+      <dl>
+        <dt>experiment</dt><dd>Your script's messages (trial IDs, conditions, triggers).</dd>
+        <dt>config</dt><dd>Tracker setup: <code>RECCFG</code>, <code>GAZE_COORDS</code>, thresholds, etc.</dd>
+        <dt>cal</dt><dd>Calibration and validation results (<code>!CAL</code>, <code>VALIDATE</code>).</dd>
+        <dt>draw</dt><dd>DataViewer drawing commands (<code>!V</code> lines: IAs, images, regions).</dd>
+      </dl>
+
+      <h3>Filters</h3>
+      <dl>
+        <dt>Message filter</dt><dd><i>contains</i> keeps only MSG lines matching the
+          text; <i>excludes</i> drops matching ones. Both apply to the message body
+          only, and only to MSG lines &mdash; events are unaffected. Tick
+          <i>regex</i> to use a regular expression instead of plain text.</dd>
+        <dt>Eye</dt><dd>Keep only right- or left-eye events. Lines with no eye
+          (messages, inputs) always stay.</dd>
+        <dt>Timestamps</dt><dd><i>Absolute</i> shows raw tracker time (ms since the
+          tracker started). <i>Relative to file start</i> re-bases so the file's
+          first timestamp is 0 &mdash; easier to read and to compare across files.
+          This affects the table and CSV/TSV exports; ASC exports always keep
+          absolute times so they stay valid ASC.</dd>
+        <dt>Time range</dt><dd>Keep lines whose Start falls between min and max.
+          Uses whichever timestamp mode is selected; the hint underneath shows the
+          available range.</dd>
+        <dt>Min duration</dt><dd>Separate thresholds in ms: <i>fixation</i> filters
+          EFIX lines, <i>saccade</i> filters ESACC lines. Rows without a duration
+          (messages, start markers) are never removed by these.</dd>
+        <dt>Global search</dt><dd>Free-text search across the raw text of every
+          line, whatever its type. Tick <i>regex</i> for a pattern.</dd>
+      </dl>
+
+      <h3>Columns</h3>
+      <p>Use <b>Columns &#9662;</b> (top right) to show or hide any of these; click a
+      header to sort. Blank cells simply mean the field doesn't apply to that line type.</p>
+      <dl>
+        <dt>#</dt><dd>Line number in the converted file &mdash; the original order.</dd>
+        <dt>Type</dt><dd>The exact line type (EFIX, ESACC, MSG, START&hellip;), coloured by category.</dd>
+        <dt>Start</dt><dd>When the line/event began, in tracker ms.</dd>
+        <dt>End</dt><dd>When the event ended (end events only).</dd>
+        <dt>Dur</dt><dd>Duration in ms (End &minus; Start + 1).</dd>
+        <dt>Eye</dt><dd>R or L &mdash; the eye the event belongs to.</dd>
+        <dt>X1, Y1</dt><dd>For EFIX: the fixation's average gaze position. For ESACC:
+          the saccade's start position. In screen pixels.</dd>
+        <dt>X2, Y2</dt><dd>The saccade's end position (ESACC only).</dd>
+        <dt>Amp</dt><dd>Saccade amplitude in degrees of visual angle. A value like
+          <code>3.2e+006</code> with <code>.</code> in the position columns means gaze
+          data was missing (eye lost) for that saccade.</dd>
+        <dt>PVel</dt><dd>Peak velocity of the saccade, in degrees/second.</dd>
+        <dt>Pupil</dt><dd>Average pupil size during a fixation (arbitrary units).</dd>
+        <dt>ResX, ResY</dt><dd>Screen resolution in pixels per degree, from END lines
+          (hidden by default).</dd>
+        <dt>In</dt><dd>The value on an INPUT (trigger) line (hidden by default).</dd>
+        <dt>Message / Detail</dt><dd>The message body for MSG lines, or the raw text
+          for preamble/header lines.</dd>
+      </dl>
+      <p>Click any row to open a detail pane showing every field plus the exact
+      original line (tabs shown as &#8594;).</p>
+
+      <h3>Exporting</h3>
+      <p><b>Export &#9662;</b> writes out <i>exactly what you are looking at</i> &mdash;
+      the current filters and sort.</p>
+      <dl>
+        <dt>This file</dt><dd>The active tab, as ASC (real ASC line text), or CSV/TSV
+          (the parsed columns above, for Excel/R/Python).</dd>
+        <dt>All loaded files</dt><dd>Applies the current filters to every open tab and
+          returns one ZIP with a file per recording.</dd>
+      </dl>
+    </div>
+    <div class="dlgfoot">
+      <span class="sel"></span>
+      <button class="btn primary" id="aboutClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROWH = 24, BUF = 12;
+const GROUP_COLOR = {PREAMBLE:'#6b7280',HEADER:'#a78bfa',END:'#f472b6',
+  INPUT:'#fbbf24',MSG:'#5b9dff',FIX:'#36c08f',SACC:'#ff8a5b',BLINK:'#e879f9'};
+const C = {idx:0,cat:1,grp:2,mkind:3,start:4,end:5,dur:6,eye:7,x1:8,y1:9,
+  x2:10,y2:11,amp:12,vel:13,pupil:14,resx:15,resy:16,val:17,raw:18};
+const GROUPS=['PREAMBLE','HEADER','END','INPUT','MSG','FIX','SACC','BLINK'];
+const KINDS=['experiment','config','cal','draw'];
+
+let REL=false, TREF=0;
+function tdisp(v){ return (REL && typeof v==='number') ? v-TREF : v; }
+
+const COLS = [
+  {k:'idx',  label:'#',     w:64,  num:true,  get:r=>r[C.idx]},
+  {k:'cat',  label:'Type',  w:92,  badge:true,get:r=>r[C.cat]},
+  {k:'start',label:'Start', w:100, num:true,  get:r=>tdisp(r[C.start])},
+  {k:'end',  label:'End',   w:100, num:true,  get:r=>tdisp(r[C.end])},
+  {k:'dur',  label:'Dur',   w:58,  num:true,  get:r=>r[C.dur]},
+  {k:'eye',  label:'Eye',   w:46,            get:r=>r[C.eye]},
+  {k:'x1',   label:'X1',    w:74,  num:true,  get:r=>r[C.x1]},
+  {k:'y1',   label:'Y1',    w:74,  num:true,  get:r=>r[C.y1]},
+  {k:'x2',   label:'X2',    w:74,  num:true,  get:r=>r[C.x2]},
+  {k:'y2',   label:'Y2',    w:74,  num:true,  get:r=>r[C.y2]},
+  {k:'amp',  label:'Amp',   w:74,  num:true,  get:r=>r[C.amp]},
+  {k:'vel',  label:'PVel',  w:62,  num:true,  get:r=>r[C.vel]},
+  {k:'pupil',label:'Pupil', w:64,  num:true,  get:r=>r[C.pupil]},
+  {k:'resx', label:'ResX',  w:62,  num:true,  get:r=>r[C.resx], hidden:true},
+  {k:'resy', label:'ResY',  w:62,  num:true,  get:r=>r[C.resy], hidden:true},
+  {k:'val',  label:'In',    w:44,  num:true,  get:r=>r[C.val],  hidden:true},
+  {k:'msg',  label:'Message / Detail', w:680, msg:true, get:msgCell},
+];
+
+function msgCell(r){
+  const g=r[C.grp], raw=r[C.raw];
+  if(g==='MSG'){ const b=raw.replace(/^MSG\t\d+ ?/,''); return b.split('\n')[0]
+      + (b.indexOf('\n')>=0?'  ⏎':''); }
+  if(['PREAMBLE','HEADER'].includes(g)) return raw.replace(/\t/g,' ');
+  return '';
+}
+
+let FILES=[], active=-1, cache={};
+let ROWS=[], META=null, view=[];
+let sortCol=null, sortDir=1, selIdx=-1;
+const F = {groups:new Set(GROUPS), kinds:new Set(KINDS), eye:'', tmin:null,
+  tmax:null, durFix:null, durSacc:null, msgInc:'', msgExc:'', msgRe:false,
+  search:'', searchRe:false};
+const $=id=>document.getElementById(id);
+
+const fileById=id=>FILES.find(f=>f.id===id);
+
+async function boot(){
+  buildSidebar(); buildHead(); buildColMenu();
+  await refreshFiles();
+  await refreshPresets();
+  if(FILES.length) await loadFile(FILES[0].id);
+  else { showEmpty(true); openBrowser(); }
+}
+
+async function refreshFiles(){
+  const res=await fetch('/api/files'); FILES=await res.json();
+  buildTabs();
+}
+
+function showEmpty(on){
+  $('emptyState').style.display = on ? 'flex' : 'none';
+  if(on){
+    $('fname').textContent=''; $('count').textContent='';
+    view=[]; ROWS=[]; META=null; layout(); render();
+    $('details').classList.remove('open');
+  }
+}
+
+function buildTabs(){
+  const el=$('tabs'); el.innerHTML='';
+  FILES.forEach(f=>{
+    const t=document.createElement('div'); t.className='tab';
+    t.title=f.path||f.name; t.dataset.id=f.id;
+    const nm=document.createElement('span'); nm.textContent=f.name;
+    t.appendChild(nm);
+    const x=document.createElement('span'); x.className='x'; x.textContent='✕';
+    x.title='Close file';
+    x.onclick=(e)=>{ e.stopPropagation(); closeFile(f.id); };
+    t.appendChild(x);
+    t.onclick=()=>loadFile(f.id);
+    el.appendChild(t);
+  });
+  const add=document.createElement('div');
+  add.className='tab add'; add.textContent='+'; add.title='Add EDF files';
+  add.onclick=()=>openBrowser();
+  el.appendChild(add);
+  markTabs();
+  $('allTitle').textContent=`All loaded files (ZIP × ${FILES.length})`;
+}
+function markTabs(){
+  document.querySelectorAll('.tab').forEach(t=>
+    t.classList.toggle('active', t.dataset.id!==undefined && +t.dataset.id===active));
+}
+
+async function closeFile(id){
+  await fetch('/api/close',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({file:id})});
+  delete cache[id];
+  await refreshFiles();
+  if(active===id){
+    active=-1;
+    if(FILES.length) await loadFile(FILES[0].id);
+    else showEmpty(true);
+  } else { markTabs(); }
+}
+
+async function loadFile(id){
+  const f=fileById(id); if(!f) return;
+  showEmpty(false);
+  const loading=$('loading');
+  loading.classList.remove('hidden'); loading.textContent='Loading '+f.name+'…';
+  loading.style.whiteSpace=''; loading.style.textAlign='';
+  loading.style.fontFamily=''; loading.style.padding='';
+  if(!cache[id]){
+    const res=await fetch('/api/rows?file='+id);
+    if(!res.ok){
+      const msg=await res.text();
+      loading.style.whiteSpace='pre-wrap'; loading.style.padding='16px';
+      loading.style.textAlign='left'; loading.style.fontFamily='monospace';
+      loading.textContent=msg;
+      active=id; markTabs();
+      return;
+    }
+    cache[id]=await res.json();
+  }
+  active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
+  selIdx=-1; $('details').classList.remove('open');
+  $('fname').textContent=META.filename;
+  updateCounts(); updatePlaceholders(); markTabs();
+  loading.classList.add('hidden');
+  apply();
+}
+
+// ---- in-app file browser ----
+let fbCwd='', fbPicked=new Set();
+
+function openBrowser(){ $('mask').classList.add('open'); fbLoad(fbCwd); }
+function closeBrowser(){ $('mask').classList.remove('open'); }
+
+async function fbLoad(path){
+  const res=await fetch('/api/browse?path='+encodeURIComponent(path||''));
+  const d=await res.json();
+  fbCwd=d.path; $('fbPath').value=d.path;
+  const drv=$('fbDrives');
+  if(d.drives && d.drives.length){
+    drv.style.display=''; drv.innerHTML='';
+    d.drives.forEach(x=>{ const o=document.createElement('option');
+      o.value=x; o.textContent=x; if(d.path.startsWith(x)) o.selected=true;
+      drv.appendChild(o); });
+  } else drv.style.display='none';
+  $('fbUp').disabled=!d.parent;
+  const el=$('fbList'); el.innerHTML='';
+  if(d.error){ el.innerHTML=`<div class="fitem"><span class="nm">${d.error}</span></div>`; return; }
+  d.dirs.forEach(name=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=`<span class="ic">📁</span><span class="nm"></span>`;
+    row.querySelector('.nm').textContent=name;
+    row.ondblclick=row.onclick=()=>fbLoad(d.path+(d.path.endsWith(d.sep)?'':d.sep)+name);
+    el.appendChild(row);
+  });
+  d.files.forEach(f=>{
+    const full=d.path+(d.path.endsWith(d.sep)?'':d.sep)+f.name;
+    const row=document.createElement('div'); row.className='fitem';
+    if(fbPicked.has(full)) row.classList.add('on');
+    row.innerHTML=`<input type="checkbox" ${fbPicked.has(full)?'checked':''}>
+      <span class="ic">📄</span><span class="nm"></span>
+      <span class="sz">${(f.size/1e6).toFixed(1)} MB</span>`;
+    row.querySelector('.nm').textContent=f.name;
+    const cb=row.querySelector('input');
+    const toggle=(on)=>{ on?fbPicked.add(full):fbPicked.delete(full);
+      row.classList.toggle('on',on); cb.checked=on; fbCount(); };
+    cb.onclick=(e)=>{ e.stopPropagation(); toggle(cb.checked); };
+    row.onclick=()=>toggle(!cb.checked);
+    el.appendChild(row);
+  });
+  if(!d.dirs.length && !d.files.length)
+    el.innerHTML='<div class="fitem"><span class="nm">No sub-folders or .EDF files here</span></div>';
+  fbCount();
+}
+function fbCount(){
+  const n=fbPicked.size;
+  $('fbSel').textContent = n ? `${n} file${n>1?'s':''} selected` : 'Nothing selected';
+}
+$('fbUp').onclick=async()=>{
+  const res=await fetch('/api/browse?path='+encodeURIComponent(fbCwd));
+  const d=await res.json(); if(d.parent) fbLoad(d.parent);
+};
+$('fbHome').onclick=()=>fbLoad('');
+$('fbDrives').onchange=e=>fbLoad(e.target.value);
+$('fbPath').onkeydown=e=>{ if(e.key==='Enter') fbLoad(e.target.value); };
+$('fbCancel').onclick=()=>{ fbPicked.clear(); closeBrowser(); };
+$('mask').onclick=e=>{ if(e.target===$('mask')){ fbPicked.clear(); closeBrowser(); } };
+$('emptyAdd').onclick=()=>openBrowser();
+
+// ---- about / help dialog ----
+$('aboutBtn').onclick=()=>$('aboutMask').classList.add('open');
+$('aboutClose').onclick=()=>$('aboutMask').classList.remove('open');
+$('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classList.remove('open'); };
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if($('aboutMask').classList.contains('open')) $('aboutMask').classList.remove('open');
+  else if($('mask').classList.contains('open')){ fbPicked.clear(); closeBrowser(); }
+});
+$('fbOpen').onclick=async()=>{
+  const paths=[...fbPicked]; if(!paths.length){ closeBrowser(); return; }
+  fbPicked.clear(); closeBrowser();
+  const res=await fetch('/api/open',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({paths})});
+  const d=await res.json();
+  FILES=d.files; buildTabs();
+  if(d.added && d.added.length) await loadFile(d.added[0]);
+  else if(FILES.length && active===-1) await loadFile(FILES[0].id);
+};
+
+function buildSidebar(){
+  const gel=$('groups'); gel.innerHTML='';
+  GROUPS.forEach(g=>{
+    const d=document.createElement('label'); d.className='grp';
+    d.innerHTML=`<input type="checkbox" checked>
+      <span class="swatch" style="background:${GROUP_COLOR[g]}"></span>
+      <span>${g}</span><span class="c" data-grp="${g}"></span>`;
+    d.querySelector('input').onchange=e=>{
+      e.target.checked?F.groups.add(g):F.groups.delete(g); apply();};
+    gel.appendChild(d);
+  });
+  const kel=$('kinds'); kel.innerHTML='';
+  KINDS.forEach(k=>{
+    const d=document.createElement('label'); d.className='grp sub';
+    d.innerHTML=`<input type="checkbox" checked><span>${k}</span>
+      <span class="c" data-kind="${k}"></span>`;
+    d.querySelector('input').onchange=e=>{
+      e.target.checked?F.kinds.add(k):F.kinds.delete(k); apply();};
+    kel.appendChild(d);
+  });
+}
+function updateCounts(){
+  GROUPS.forEach(g=>{ const s=document.querySelector(`[data-grp="${g}"]`);
+    if(s) s.textContent=(META.group_counts[g]||0).toLocaleString();});
+  KINDS.forEach(k=>{ const s=document.querySelector(`[data-kind="${k}"]`);
+    if(s) s.textContent=(META.kind_counts[k]||0).toLocaleString();});
+}
+function updatePlaceholders(){
+  if(REL){ $('tmin').placeholder='0'; $('tmax').placeholder=(META.tmax-META.tmin);
+    $('trange').textContent=`data: 0 – ${META.tmax-META.tmin} (relative)`; }
+  else { $('tmin').placeholder=META.tmin; $('tmax').placeholder=META.tmax;
+    $('trange').textContent=`data: ${META.tmin} – ${META.tmax}`; }
+}
+
+function buildHead(){
+  const el=$('thead'); el.innerHTML='';
+  COLS.forEach((c,i)=>{
+    if(c.hidden) return;
+    const d=document.createElement('div'); d.className='th'; d.style.width=c.w+'px';
+    d.textContent=c.label;
+    if(sortCol===i) d.innerHTML=c.label+`<span class="ar">${sortDir>0?'▲':'▼'}</span>`;
+    d.onclick=()=>{ sortDir = (sortCol===i)? -sortDir : 1; sortCol=i; apply(); };
+    el.appendChild(d);
+  });
+}
+function buildColMenu(){
+  const m=$('colmenu'); m.innerHTML='';
+  COLS.forEach((c,i)=>{
+    const l=document.createElement('label');
+    l.innerHTML=`<input type="checkbox" ${c.hidden?'':'checked'}> ${c.label}`;
+    l.querySelector('input').onchange=e=>{ c.hidden=!e.target.checked; buildHead(); render(); };
+    m.appendChild(l);
+  });
+}
+
+function makeMatcher(str, isRe){
+  if(!str) return null;
+  if(isRe){ try{ const re=new RegExp(str,'i'); return s=>re.test(s);}catch(e){ return null;} }
+  const q=str.toLowerCase(); return s=>s.toLowerCase().includes(q);
+}
+
+function apply(){
+  if(!META) return;
+  const incM=makeMatcher(F.msgInc,F.msgRe), excM=makeMatcher(F.msgExc,F.msgRe);
+  const srch=makeMatcher(F.search,F.searchRe);
+  let tlo=F.tmin, thi=F.tmax;
+  if(REL){ if(tlo!==null) tlo+=TREF; if(thi!==null) thi+=TREF; }
+  const eye=F.eye;
+  view=[];
+  for(let i=0;i<ROWS.length;i++){
+    const r=ROWS[i], g=r[C.grp];
+    if(!F.groups.has(g)) continue;
+    if(g==='MSG' && !F.kinds.has(r[C.mkind]||'experiment')) continue;
+    if(eye && r[C.eye] && r[C.eye]!==eye) continue;
+    const t=r[C.start];
+    if(tlo!==null && typeof t==='number' && t<tlo) continue;
+    if(thi!==null && typeof t==='number' && t>thi) continue;
+    const dv=r[C.dur];
+    if(g==='FIX' && F.durFix!==null && typeof dv==='number' && dv<F.durFix) continue;
+    if(g==='SACC' && F.durSacc!==null && typeof dv==='number' && dv<F.durSacc) continue;
+    if(g==='MSG'){
+      const body=r[C.raw].replace(/^MSG\t\d+ ?/,'');
+      if(incM && !incM(body)) continue;
+      if(excM && excM(body)) continue;
+    }
+    if(srch && !srch(r[C.raw])) continue;
+    view.push(r);
+  }
+  if(sortCol!==null){
+    const col=COLS[sortCol];
+    view.sort((a,b)=>{
+      let x=col.get(a), y=col.get(b);
+      if(col.num){ x=parseFloat(x); y=parseFloat(y);
+        if(isNaN(x)) x=-Infinity; if(isNaN(y)) y=-Infinity; }
+      else { x=(''+x).toLowerCase(); y=(''+y).toLowerCase(); }
+      return x<y?-sortDir : x>y?sortDir : 0;
+    });
+  }
+  $('count').textContent =
+    `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines`;
+  buildHead(); layout(); render();
+}
+
+const vport=$('vport'), scroll=$('scroll');
+function rowWidth(){ return COLS.reduce((s,c)=>s+(c.hidden?0:c.w),0); }
+function layout(){
+  vport.style.height=(view.length*ROWH)+'px';
+  vport.style.width=rowWidth()+'px';
+  $('thead').style.width=rowWidth()+'px';
+}
+function render(){
+  const top=scroll.scrollTop, h=scroll.clientHeight;
+  let first=Math.max(0,Math.floor(top/ROWH)-BUF);
+  let last=Math.min(view.length,Math.ceil((top+h)/ROWH)+BUF);
+  let html='';
+  for(let i=first;i<last;i++){
+    const r=view[i];
+    html+=`<div class="tr${r[C.idx]===selIdx?' sel':''}" style="top:${i*ROWH}px;width:${rowWidth()}px" data-i="${r[C.idx]}">`;
+    for(const c of COLS){
+      if(c.hidden) continue;
+      let v=c.get(r); if(v===''||v===undefined||v===null) v='';
+      if(c.badge){
+        const col=GROUP_COLOR[r[C.grp]]||'#888';
+        html+=`<div class="td" style="width:${c.w}px"><span class="badge" style="background:${col}">${v}</span></div>`;
+      } else {
+        const cls='td'+(c.msg?' msg':'');
+        html+=`<div class="${cls}" style="width:${c.w}px">${escapeHtml(''+v)}</div>`;
+      }
+    }
+    html+='</div>';
+  }
+  vport.innerHTML=html;
+}
+function escapeHtml(s){return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+scroll.addEventListener('scroll',render);
+window.addEventListener('resize',render);
+
+vport.addEventListener('click',e=>{
+  const tr=e.target.closest('.tr'); if(!tr) return;
+  selIdx=parseInt(tr.dataset.i,10); showDetails(selIdx); render();
+});
+function showDetails(idx){
+  const r=ROWS[idx]; const det=$('details');
+  const fields=[['Index',r[C.idx]],['Type',r[C.cat]],['Group',r[C.grp]],
+    ['Msg kind',r[C.mkind]],['Start',tdisp(r[C.start])],['End',tdisp(r[C.end])],
+    ['Dur',r[C.dur]],['Eye',r[C.eye]],['X1',r[C.x1]],['Y1',r[C.y1]],
+    ['X2',r[C.x2]],['Y2',r[C.y2]],['Amplitude',r[C.amp]],['Peak vel',r[C.vel]],
+    ['Pupil',r[C.pupil]],['Res X',r[C.resx]],['Res Y',r[C.resy]],['Input',r[C.val]]];
+  let t='<table>';
+  for(const [k,v] of fields){ if(v!==''&&v!==undefined&&v!==null)
+    t+=`<tr><td class="k">${k}</td><td>${escapeHtml(''+v)}</td></tr>`; }
+  t+='</table>';
+  const raw=r[C.raw].replace(/\t/g,'\u2192').replace(/\n/g,'\u21b5\n');
+  det.innerHTML=t+`<div class="raw">${escapeHtml(raw)}</div>`;
+  det.classList.add('open');
+}
+
+function deb(fn,ms){let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms);};}
+const onType=deb(()=>{
+  F.msgInc=$('msgInc').value; F.msgExc=$('msgExc').value; F.search=$('search').value; apply(); },180);
+['msgInc','msgExc','search'].forEach(id=>$(id).addEventListener('input',onType));
+$('msgRe').onchange=e=>{F.msgRe=e.target.checked;apply();};
+$('searchRe').onchange=e=>{F.searchRe=e.target.checked;apply();};
+$('eyeSel').onchange=e=>{F.eye=e.target.value;apply();};
+$('tsMode').onchange=e=>{ REL=e.target.value==='rel'; updatePlaceholders(); apply(); };
+const onNum=deb(()=>{
+  F.tmin=$('tmin').value===''?null:+$('tmin').value;
+  F.tmax=$('tmax').value===''?null:+$('tmax').value;
+  F.durFix=$('durFix').value===''?null:+$('durFix').value;
+  F.durSacc=$('durSacc').value===''?null:+$('durSacc').value; apply(); },180);
+['tmin','tmax','durFix','durSacc'].forEach(id=>$(id).addEventListener('input',onNum));
+
+// ---- built-in presets ----
+document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
+  const p=b.dataset.preset;
+  const setGroups=(arr)=>{F.groups=new Set(arr);
+    document.querySelectorAll('#groups input').forEach((c,i)=>c.checked=arr.includes(GROUPS[i]));};
+  if(p==='reset'){ setGroups(GROUPS.slice());
+    F.kinds=new Set(KINDS); document.querySelectorAll('#kinds input').forEach(c=>c.checked=true);
+    F.msgInc=F.msgExc=F.search=''; $('msgInc').value=$('msgExc').value=$('search').value='';
+    F.eye='';$('eyeSel').value=''; F.tmin=F.tmax=null; F.durFix=F.durSacc=null;
+    $('tmin').value=$('tmax').value=$('durFix').value=$('durSacc').value=''; }
+  if(p==='events') setGroups(['FIX','SACC','BLINK']);
+  if(p==='messages') setGroups(['MSG']);
+  if(p==='clean') setGroups(['HEADER','END','INPUT','MSG','FIX','SACC','BLINK']);
+  apply();
+});
+
+// ---- saved presets (persisted on disk) ----
+function currentConfig(){
+  return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
+    tmin:F.tmin, tmax:F.tmax, durFix:F.durFix, durSacc:F.durSacc,
+    msgInc:F.msgInc, msgExc:F.msgExc, msgRe:F.msgRe,
+    search:F.search, searchRe:F.searchRe, rel:REL,
+    cols:COLS.filter(c=>!c.hidden).map(c=>c.k)};
+}
+function applyConfig(cfg){
+  F.groups=new Set(cfg.groups||GROUPS);
+  F.kinds=new Set(cfg.kinds||KINDS);
+  document.querySelectorAll('#groups input').forEach((c,i)=>c.checked=F.groups.has(GROUPS[i]));
+  document.querySelectorAll('#kinds input').forEach((c,i)=>c.checked=F.kinds.has(KINDS[i]));
+  F.eye=cfg.eye||''; $('eyeSel').value=F.eye;
+  F.tmin=cfg.tmin??null; F.tmax=cfg.tmax??null;
+  F.durFix=cfg.durFix??null; F.durSacc=cfg.durSacc??null;
+  $('tmin').value=F.tmin??''; $('tmax').value=F.tmax??'';
+  $('durFix').value=F.durFix??''; $('durSacc').value=F.durSacc??'';
+  F.msgInc=cfg.msgInc||''; F.msgExc=cfg.msgExc||''; F.search=cfg.search||'';
+  $('msgInc').value=F.msgInc; $('msgExc').value=F.msgExc; $('search').value=F.search;
+  F.msgRe=!!cfg.msgRe; F.searchRe=!!cfg.searchRe;
+  $('msgRe').checked=F.msgRe; $('searchRe').checked=F.searchRe;
+  REL=!!cfg.rel; $('tsMode').value=REL?'rel':'abs';
+  if(cfg.cols){ COLS.forEach(c=>c.hidden=!cfg.cols.includes(c.k));
+    buildColMenu(); }
+  if(META) updatePlaceholders();
+  apply();
+}
+async function refreshPresets(){
+  const res=await fetch('/api/presets'); const data=await res.json();
+  const el=$('savedPresets'); el.innerHTML='';
+  const names=Object.keys(data);
+  if(!names.length){ el.innerHTML='<div class="empty">none saved yet</div>'; return; }
+  names.forEach(n=>{
+    const d=document.createElement('div'); d.className='pri';
+    d.innerHTML=`<span class="nm">${escapeHtml(n)}</span><span class="del" title="delete">✕</span>`;
+    d.querySelector('.nm').onclick=()=>applyConfig(data[n]);
+    d.querySelector('.del').onclick=async(e)=>{ e.stopPropagation();
+      await fetch('/api/presets',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'delete',name:n})}); refreshPresets(); };
+    el.appendChild(d);
+  });
+}
+$('savePreset').onclick=async()=>{
+  const name=prompt('Save current filters as preset:'); if(!name) return;
+  await fetch('/api/presets',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'save',name:name.trim(),config:currentConfig()})});
+  refreshPresets();
+};
+
+// ---- menus ----
+function closeMenus(except){ ['colmenu','expmenu'].forEach(id=>{ if(id!==except) $(id).classList.remove('open'); }); }
+$('colsBtn').onclick=(e)=>{ e.stopPropagation(); closeMenus('colmenu'); $('colmenu').classList.toggle('open'); };
+$('expBtn').onclick=(e)=>{ e.stopPropagation(); closeMenus('expmenu'); $('expmenu').classList.toggle('open'); };
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#colmenu')&&!e.target.closest('#colsBtn')) $('colmenu').classList.remove('open');
+  if(!e.target.closest('#expmenu')&&!e.target.closest('#expBtn')) $('expmenu').classList.remove('open');
+});
+
+// ---- export ----
+function currentOpts(){
+  let lo=F.tmin, hi=F.tmax;
+  if(REL){ if(lo!==null) lo+=TREF; if(hi!==null) hi+=TREF; }
+  return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
+    tmin:lo, tmax:hi, min_fix:F.durFix, min_sacc:F.durSacc,
+    contains:F.msgInc, exclude:F.msgExc, contains_regex:F.msgRe,
+    search:F.search, search_regex:F.searchRe};
+}
+function download(blob, fallback){
+  const cd=blob.cd||''; const m=cd.match(/filename="(.+?)"/);
+  const name=m?m[1]:fallback;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob.data);
+  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
+async function post(url, body){
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  return {data:await res.blob(), cd:res.headers.get('Content-Disposition')||''};
+}
+async function exportOne(fmt){
+  const indices=view.map(r=>r[C.idx]);
+  download(await post('/api/export',{file:active,indices,format:fmt,relative:REL}),
+    'export.'+fmt);
+}
+async function exportAll(fmt){
+  download(await post('/api/export_all',{opts:currentOpts(),format:fmt,relative:REL}),
+    'edf_export_'+fmt+'.zip');
+}
+$('expmenu').querySelectorAll('.mi').forEach(mi=>mi.onclick=()=>{
+  const fmt=mi.dataset.fmt;
+  if(mi.dataset.scope==='one') exportOne(fmt); else exportAll(fmt);
+  $('expmenu').classList.remove('open');
+});
+
+boot();
+</script>
+</body>
+</html>
