@@ -18,11 +18,19 @@ datas, binaries, hiddenimports = collect_all("eyelinkio")
 _sp = os.path.dirname(os.path.dirname(eyelinkio.__file__))
 datas += [(os.path.join(_sp, "libedfapi"), "libedfapi")]
 
-# --- application icon (per-platform) ---------------------------------------
 try:
     _here = SPECPATH                       # dir containing this .spec
 except NameError:
     _here = os.getcwd()
+
+# --- the web UI ------------------------------------------------------------
+_html = os.path.join(_here, "index.html")
+if not os.path.exists(_html):
+    raise SystemExit("gama.spec: index.html is missing -- it must sit next to "
+                     "gama.py and this spec.")
+datas += [(_html, ".")]
+
+# --- application icon (per-platform) ---------------------------------------
 _png = os.path.join(_here, "icon.png")
 
 if os.path.exists(_png):

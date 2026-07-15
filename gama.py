@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 r"""
 Caleb De Odorico
-gama.py -- Easy EyeLink 1orer and Exporter
+gama.py -- Easy EyeLinplorer and Exporter
 ================================================
 
 A single-file tool that opens SR Research EyeLink ``.EDF`` recordings and lets
@@ -36,6 +36,8 @@ import os
 import sys
 import ctypes as C
 from decimal import Decimal, ROUND_HALF_UP
+
+__version__ = "1.0.0"
 
 
 # ---------------------------------------------------------------------------
@@ -916,6 +918,61 @@ def export_table(parsed, rows, indices, delimiter, relative=False, tref=0):
     return buf.getvalue().encode("utf-8"), "text/csv"
 
 
+_HTML_DOC = """<!DOCTYPE html>
+<meta charset="utf-8"><title>{title}</title>
+<style>
+ body{{font:13px -apple-system,"Segoe UI",Roboto,sans-serif;margin:24px;color:#111}}
+ h1{{font-size:16px;margin:0 0 2px}}
+ .sub{{color:#666;font-size:12px;margin-bottom:14px}}
+ table{{border-collapse:collapse;width:100%}}
+ th,td{{border:1px solid #ddd;padding:3px 6px;text-align:left;
+   font-variant-numeric:tabular-nums;white-space:nowrap}}
+ th{{background:#f3f4f6;position:sticky;top:0}}
+ td.msg{{white-space:normal;font-variant-numeric:normal}}
+ tr:nth-child(even){{background:#fafafa}}
+ @media print{{body{{margin:8px}} th{{position:static}}}}
+</style>
+<h1>{title}</h1>
+<div class="sub">{sub}</div>
+<table><thead><tr>{head}</tr></thead><tbody>
+{rows}
+</tbody></table>
+"""
+
+
+def _esc(v):
+    return (str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view"):
+    """A standalone, self-contained HTML copy of the current view (printable)."""
+    head = "".join(f"<th>{_esc(c)}</th>" for c in EXPORT_COLUMNS)
+    out = []
+    for i in indices:
+        if not (0 <= i < len(parsed)):
+            continue
+        d, r = parsed[i], rows[i]
+        st, en = d["start"], d["end"]
+        if relative:
+            if isinstance(st, int):
+                st -= tref
+            if isinstance(en, int):
+                en -= tref
+        msg = (d["msg"] or "").replace("\r", " ").replace("\n", " ")
+        cells = [i, r[I_CAT], r[I_GRP], r[I_MK], st, en, d["dur"], d["eye"],
+                 d["x1"], d["y1"], d["x2"], d["y2"], d["amp"], d["vel"],
+                 d["pupil"], d["resx"], d["resy"], d["val"]]
+        tds = "".join(f"<td>{_esc(c)}</td>" for c in cells)
+        tds += f'<td class="msg">{_esc(msg)}</td>'
+        out.append(f"<tr>{tds}</tr>")
+    sub = (f"{len(out):,} rows &middot; times "
+           f"{'relative to file start' if relative else 'absolute'} &middot; "
+           f"exported by gama {__version__}")
+    doc = _HTML_DOC.format(title=_esc(title), sub=sub, head=head,
+                           rows="\n".join(out))
+    return doc.encode("utf-8"), "text/html"
+
+
 def export_bytes(entry, indices, fmt, relative):
     if fmt == "asc":
         body, _ = export_asc(entry.records, indices)
@@ -924,6 +981,10 @@ def export_bytes(entry, indices, fmt, relative):
         body, _ = export_table(entry.parsed, entry.rows, indices, "\t",
                                relative, entry.tmin)
         return body, ".tsv"
+    if fmt == "html":
+        body, _ = export_html(entry.parsed, entry.rows, indices, relative,
+                              entry.tmin, entry.name)
+        return body, ".html"
     body, _ = export_table(entry.parsed, entry.rows, indices, ",",
                            relative, entry.tmin)
     return body, ".csv"
@@ -1027,11 +1088,48 @@ def _ensure_parsed(entry, converted_from_line):
                   f"({len(entry.payload_gz) / 1e6:.1f} MB compressed).", flush=True)
         except BaseException as exc:  # incl. SystemExit from edfapi loading
             import traceback
+            global LAST_ERROR
             entry.error = "".join(
                 traceback.format_exception(type(exc), exc, exc.__traceback__))
+            LAST_ERROR = f"{entry.name}: {entry.error.strip().splitlines()[-1]}"
             # Recorded once; the browser is shown the message instead of the
             # request being retried forever.
             print(f"\nERROR parsing {entry.name}:\n{entry.error}", flush=True)
+
+
+LAST_ERROR = None
+
+
+def _edfapi_version():
+    try:
+        E = _load_edfapi()
+        v = E.edf_get_version()
+        return v.decode("latin-1", "replace") if isinstance(v, bytes) else str(v)
+    except BaseException as exc:
+        return f"unavailable ({exc!r})"
+
+
+def diagnostics(presets_dir):
+    """Everything worth pasting into a bug report."""
+    import platform
+    try:
+        import eyelinkio
+        elio = getattr(eyelinkio, "__version__", "?")
+    except Exception:
+        elio = "not importable"
+    return {
+        "gama": __version__,
+        "python": sys.version.split()[0],
+        "frozen": bool(getattr(sys, "frozen", False)),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "eyelinkio": elio,
+        "edfapi": _edfapi_version(),
+        "base_dir": BASE_DIR,
+        "presets_dir": presets_dir,
+        "ui": "index.html" if _resource_bytes(HTML_FILENAME) else "MISSING",
+        "last_error": LAST_ERROR,
+    }
 
 
 class Registry:
@@ -1164,6 +1262,8 @@ def make_handler(reg, converted_from_line, presets_dir):
                                {"Cache-Control": "max-age=86400"})
                 else:
                     self._send(404, b"", "text/plain")
+            elif route == "/api/info":
+                self._json(diagnostics(presets_dir))
             elif route == "/api/files":
                 self._json(reg.listing())
             elif route == "/api/browse":
@@ -1340,7 +1440,7 @@ def _resolve_fmt(args, multi):
         return "." + args.format
     if args.export and not multi:
         ext = os.path.splitext(args.export)[1].lower()
-        if ext in (".asc", ".csv", ".tsv"):
+        if ext in (".asc", ".csv", ".tsv", ".html"):
             return ext
     return ".csv"
 
@@ -1370,6 +1470,9 @@ def _headless(args, paths):
             elif fmt == ".tsv":
                 body, _ = export_table(parsed, rows, indices, "\t",
                                        args.relative, tref)
+            elif fmt == ".html":
+                body, _ = export_html(parsed, rows, indices, args.relative,
+                                      tref, os.path.basename(path))
             else:
                 body, _ = export_table(parsed, rows, indices, ",",
                                        args.relative, tref)
@@ -1383,6 +1486,8 @@ def main(argv=None):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("edf", nargs="*", help="path(s) to input .EDF file(s)")
+    ap.add_argument("--version", action="version",
+                    version=f"gama {__version__}")
     ap.add_argument("--port", type=int, default=0, help="web port (default auto)")
     ap.add_argument("--no-browser", action="store_true",
                     help="do not auto-open a browser")
@@ -1394,7 +1499,7 @@ def main(argv=None):
     ap.add_argument("--export", metavar="OUT",
                     help="head-less: write filtered rows to OUT (a file for one "
                          "input, or a directory for several)")
-    ap.add_argument("--format", choices=["asc", "csv", "tsv"],
+    ap.add_argument("--format", choices=["asc", "csv", "tsv", "html"],
                     help="export format (overrides extension; needed for batch)")
     ap.add_argument("--relative", action="store_true",
                     help="write CSV/TSV times relative to each file's start")

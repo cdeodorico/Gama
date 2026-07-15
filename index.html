@@ -3,18 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gama - EDF Explorer</title>
+<title>Gama</title>
 <link rel="icon" type="image/png" href="/icon.png">
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
     --txt:#e6e9ef; --muted:#9aa3b2; --accent:#5b9dff; --accent2:#36c08f;
     --row:#13161c; --rowalt:#161a21; --rowhover:#222838; --rowsel:#2a3550;
-    --rowh:24px;
+    --hit:rgba(251,191,36,.22); --gridline:#0c0e12; --badgetxt:#0c0e12;
+    --rowh:24px; --fs:13px;
   }
+  body.light{
+    --bg:#ffffff; --panel:#f4f5f7; --panel2:#e9ebef; --line:#d3d7de;
+    --txt:#12141a; --muted:#5d6673; --accent:#1c62d6; --accent2:#0f8a5f;
+    --row:#ffffff; --rowalt:#f7f8fa; --rowhover:#e6ecf7; --rowsel:#cfe0ff;
+    --hit:rgba(240,170,10,.30); --gridline:#e3e6ea; --badgetxt:#ffffff;
+  }
+  body.fs-s{--fs:12px;--rowh:21px}
+  body.fs-m{--fs:13px;--rowh:24px}
+  body.fs-l{--fs:15px;--rowh:29px}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
-    font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+    font:var(--fs)/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
   button,input,select{font:inherit;color:inherit}
   .app{display:flex;flex-direction:column;height:100vh}
   header{display:flex;align-items:center;gap:14px;padding:8px 14px;
@@ -26,10 +36,10 @@
   header .spacer{flex:1}
   .btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
     padding:6px 11px;cursor:pointer;color:var(--txt)}
-  .btn:hover{border-color:var(--accent);background:#222838}
+  .btn:hover{border-color:var(--accent);background:var(--rowhover)}
   .btn.sm{padding:5px 8px;font-size:12px}
-  .btn.primary{border-color:var(--accent2);color:#eafff6}
-  .btn.primary:hover{background:#1d3b31;border-color:var(--accent2)}
+  .btn.primary{border-color:var(--accent2);color:var(--accent2);font-weight:600}
+  .btn.primary:hover{background:var(--rowhover);border-color:var(--accent2)}
   .btn:disabled{opacity:.45;cursor:default}
   .tabs{display:flex;gap:3px;background:var(--panel);flex:none;
     border-bottom:1px solid var(--line);padding:4px 8px 0;overflow-x:auto}
@@ -59,7 +69,7 @@
   .fbody{flex:1;overflow:auto;margin:0 14px;border:1px solid var(--line);
     border-radius:8px;background:var(--panel2)}
   .fitem{display:flex;align-items:center;gap:9px;padding:6px 10px;
-    cursor:pointer;border-bottom:1px solid #0c0e12}
+    cursor:pointer;border-bottom:1px solid var(--gridline)}
   .fitem:hover{background:var(--rowhover)}
   .fitem .ic{width:16px;text-align:center;opacity:.85}
   .fitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -83,10 +93,10 @@
   .about h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;
     color:var(--accent);margin:18px 0 8px}
   .about h3:first-child{margin-top:6px}
-  .about p{margin:0 0 10px;color:#cfd6e4}
+  .about p{margin:0 0 10px;color:var(--txt)}
   .about dl{display:grid;grid-template-columns:132px 1fr;gap:5px 12px;margin:0 0 6px}
   .about dt{color:var(--txt);font-weight:600}
-  .about dd{margin:0;color:#aab3c2}
+  .about dd{margin:0;color:var(--muted)}
   .about code{background:var(--panel2);border:1px solid var(--line);
     border-radius:4px;padding:0 4px;font-size:12px}
   .about .pill{display:inline-block;width:9px;height:9px;border-radius:2px;
@@ -124,26 +134,34 @@
   .th .ar{color:var(--accent);margin-left:3px}
   .vport{position:relative}
   .tr{display:flex;position:absolute;left:0;right:0;height:var(--rowh);
-    align-items:center;border-bottom:1px solid #0c0e12}
+    align-items:center;border-bottom:1px solid var(--gridline)}
   .tr:nth-child(even){background:var(--rowalt)}
   .tr:nth-child(odd){background:var(--row)}
   .tr:hover{background:var(--rowhover)}
   .tr.sel{background:var(--rowsel)}
+  .tr.hit{box-shadow:inset 3px 0 0 #fbbf24;background:var(--hit)}
+  .tr.hit.sel{background:var(--rowsel)}
+  .tr.hit.cur{outline:1px solid #fbbf24;outline-offset:-1px}
+  .findbar{display:flex;align-items:center;gap:6px;margin:-2px 0 8px}
+  .findbar .n{color:var(--muted);font-size:11px;flex:1;
+    font-variant-numeric:tabular-nums}
+  .findbar .btn{padding:2px 7px;line-height:1.2}
+  #goto{width:92px;margin:0;text-align:center}
   .td{flex:none;padding:0 8px;height:var(--rowh);line-height:var(--rowh);
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
-    font-variant-numeric:tabular-nums;border-right:1px solid #0c0e12}
-  .td.msg{font-variant-numeric:normal;color:#cfd6e4}
+    font-variant-numeric:tabular-nums;border-right:1px solid var(--gridline)}
+  .td.msg{font-variant-numeric:normal;color:var(--txt)}
   .badge{display:inline-block;padding:0 6px;border-radius:9px;font-size:10.5px;
-    font-weight:700;line-height:16px;color:#0c0e12}
+    font-weight:700;line-height:16px;color:var(--badgetxt)}
   .details{flex:none;height:0;overflow:hidden;background:var(--panel);
     border-top:1px solid var(--line);transition:height .12s}
   .details.open{height:190px;overflow:auto;padding:10px 14px}
   .details table{border-collapse:collapse}
   .details td{padding:2px 12px 2px 0;vertical-align:top}
   .details td.k{color:var(--muted);white-space:nowrap}
-  .details .raw{margin-top:8px;padding:8px;background:#0c0e12;border-radius:6px;
+  .details .raw{margin-top:8px;padding:8px;background:var(--panel2);border-radius:6px;
     white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;
-    color:#cbd3e1;max-height:90px;overflow:auto}
+    color:var(--txt);max-height:90px;overflow:auto}
   .menu{position:absolute;background:var(--panel2);border:1px solid var(--line);
     border-radius:8px;padding:6px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.5);
     display:none;min-width:170px}
@@ -152,10 +170,10 @@
   .mtitle{font-size:10px;text-transform:uppercase;letter-spacing:.5px;
     color:var(--muted);padding:6px 8px 3px}
   .mi{padding:6px 10px;border-radius:5px;cursor:pointer;white-space:nowrap}
-  .mi:hover{background:#2a3550}
+  .mi:hover{background:var(--rowsel)}
   .loading{position:absolute;inset:0;display:flex;align-items:center;
     justify-content:center;color:var(--muted);font-size:14px;
-    background:rgba(15,17,21,.6);z-index:8}
+    background:var(--bg);z-index:8}
   .loading.hidden{display:none}
   .hint{color:var(--muted);font-size:11px;margin:-2px 0 8px}
 </style>
@@ -168,6 +186,7 @@
     <span class="file" id="fname">…</span>
     <span class="count" id="count"></span>
     <span class="spacer"></span>
+    <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
     <button class="btn" id="colsBtn">Columns ▾</button>
     <button class="btn" id="expBtn">Export ▾</button>
   </header>
@@ -224,7 +243,29 @@
 
       <h3>Global search</h3>
       <input type="text" id="search" placeholder="search raw line…">
+      <select id="searchMode" title="Filter hides non-matching rows; Highlight keeps them in context">
+        <option value="filter">Filter rows</option>
+        <option value="highlight">Highlight in place</option>
+      </select>
+      <div class="findbar" id="findbar" style="display:none">
+        <span class="n" id="hitCount">no matches</span>
+        <button class="btn sm" id="hitPrev" title="Previous match (Shift+Enter)">‹</button>
+        <button class="btn sm" id="hitNext" title="Next match (Enter)">›</button>
+      </div>
       <label class="chk"><input type="checkbox" id="searchRe"> regex</label>
+
+      <h3>Appearance</h3>
+      <div class="row2">
+        <select id="themeSel" title="Colour theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+        <select id="fontSel" title="Text size">
+          <option value="s">Small</option>
+          <option value="m">Medium</option>
+          <option value="l">Large</option>
+        </select>
+      </div>
     </aside>
     <div class="aboutbar"><button class="btn sm" id="aboutBtn">About / Help</button></div>
 
@@ -246,10 +287,15 @@
       <div class="mi" data-scope="one" data-fmt="asc">ASC (.asc)</div>
       <div class="mi" data-scope="one" data-fmt="csv">CSV (.csv)</div>
       <div class="mi" data-scope="one" data-fmt="tsv">TSV (.tsv)</div>
+      <div class="mi" data-scope="one" data-fmt="html">HTML (printable)</div>
       <div class="mtitle" id="allTitle">All loaded files (ZIP)</div>
       <div class="mi" data-scope="all" data-fmt="asc">ASC × all</div>
       <div class="mi" data-scope="all" data-fmt="csv">CSV × all</div>
       <div class="mi" data-scope="all" data-fmt="tsv">TSV × all</div>
+      <div class="mi" data-scope="all" data-fmt="html">HTML × all</div>
+      <div class="mtitle">Share</div>
+      <div class="mi" id="copyLink">Copy link to this view</div>
+      <div class="mi" id="copyRows">Copy selected rows</div>
     </div>
   </div>
 </div>
@@ -275,13 +321,13 @@
 
 <div class="mask" id="aboutMask">
   <div class="dlg">
-    <header><h2>About  Gama &mdash; EyeLink EDF Explorer</h2></header>
+    <header><h2>About Gama &mdash; EyeLink EDF Explorer <span id="verTag"
+      style="color:var(--muted);font-weight:400"></span></h2></header>
     <div class="about">
       <p>Gama opens SR&nbsp;Research EyeLink <code>.EDF</code> recordings and shows them
-      the way SR's own <code>edf2asc</code> would convert them &mdash; as event lines
+      the way SR Research's own <code>edf2asc</code> would convert them &mdash; as event lines
       (fixations, saccades, blinks, messages) &mdash; but in a filterable,
-      spreadsheet-like table. Nothing is modified: the file on disk is only read.
-      Exporting everything with no filters reproduces a byte-identical ASC.</p>
+      spreadsheet-like table. Nothing else is modified</p>
 
       <h3>Files &amp; tabs</h3>
       <p>Each open recording gets a tab. <b>+</b> opens the file browser to add
@@ -297,7 +343,7 @@
         <dt>Hide setup</dt><dd>Everything except the file preamble.</dd>
         <dt>Saved presets</dt><dd>Store the current filters (including timestamp
           mode and visible columns) under a name and reload it later. They are
-          saved as JSON files in the <code>presets</code> folder next to Gama, so
+          saved as JSON files in the <code>presets</code> folder next to gama, so
           they persist and can be shared. <b>&#10005;</b> deletes one.</dd>
       </dl>
 
@@ -352,7 +398,35 @@
           EFIX lines, <i>saccade</i> filters ESACC lines. Rows without a duration
           (messages, start markers) are never removed by these.</dd>
         <dt>Global search</dt><dd>Free-text search across the raw text of every
-          line, whatever its type. Tick <i>regex</i> for a pattern.</dd>
+          line, whatever its type. Tick <i>regex</i> for a pattern.
+          <i>Filter rows</i> hides everything that doesn't match; <i>Highlight in
+          place</i> keeps the full view and marks the matches instead, so you can
+          see them in context &mdash; use <b>&#8249;</b>/<b>&#8250;</b>, Enter or
+          F3 to step through them.</dd>
+        <dt>Appearance</dt><dd>Dark or light theme and three text sizes. Remembered
+          in this browser; not part of a preset.</dd>
+      </dl>
+
+      <h3>Selecting &amp; copying</h3>
+      <p>Click a row to select it; shift-click for a range, Ctrl/&#8984;-click to add
+      or remove one, Ctrl+A for everything in the current view. Ctrl+C copies the
+      selection as tab-separated text with the visible columns &mdash; paste straight
+      into Excel. With nothing selected it copies the whole view.</p>
+
+      <h3>Keyboard</h3>
+      <dl>
+        <dt>Ctrl+F</dt><dd>Jump to the search box.</dd>
+        <dt>Ctrl+G</dt><dd>Jump to the "Go to #" box (a line number).</dd>
+        <dt>Ctrl+O</dt><dd>Add files.</dd>
+        <dt>Ctrl+E</dt><dd>Open the export menu.</dd>
+        <dt>Ctrl+A / Ctrl+C</dt><dd>Select all in view / copy selection.</dd>
+        <dt>&#8593; &#8595; PgUp PgDn Home End</dt>
+          <dd>Move through rows; hold Shift to extend the selection.</dd>
+        <dt>Enter / F3</dt><dd>Next match in highlight mode (Shift for previous).</dd>
+        <dt>Alt+1 &hellip; Alt+9</dt><dd>Switch to that tab.</dd>
+        <dt>Alt+W</dt><dd>Close the current tab.</dd>
+        <dt>?</dt><dd>Open this help.</dd>
+        <dt>Esc</dt><dd>Close a dialog.</dd>
       </dl>
 
       <h3>Columns</h3>
@@ -386,21 +460,43 @@
       <p><b>Export &#9662;</b> writes out <i>exactly what you are looking at</i> &mdash;
       the current filters and sort.</p>
       <dl>
-        <dt>This file</dt><dd>The active tab, as ASC (real ASC line text), or CSV/TSV
-          (the parsed columns above, for Excel/R/Python).</dd>
+        <dt>This file</dt><dd>The active tab, as ASC (real ASC line text), CSV/TSV
+          (the parsed columns above, for Excel/R/Python), or HTML &mdash; a
+          self-contained page you can keep or print as a record of the view.</dd>
         <dt>All loaded files</dt><dd>Applies the current filters to every open tab and
           returns one ZIP with a file per recording.</dd>
+        <dt>Copy link to this view</dt><dd>Puts a link on the clipboard that restores
+          these filters, and reopens the same file if the person you send it to can
+          reach that path (a shared drive, say).</dd>
+      </dl>
+
+      <h3>Tabs</h3>
+      <p>Double-click a tab to give it a friendlier label than the filename.
+      Labels are remembered in this browser and don't affect exports.</p>
+
+      <h3>Credits</h3>
+      <dl>
+        <dt>Creator</dt><dd><a href="http://www.deodori.co" target="_blank" rel="">Caleb (Canaaan) De Odorico</a>
+        of The University of Queensland's School of Psychology</dd>
+        <dt>API</dt><dd>API suppied through python package eyelinkio created by <a href="
+        https://scholar.google.com/citations?user=fSZ3ehAAAAAJ&hl=en" target="_blank" rel"">Scott Huberty<a/>.</dd>
+        <dt>Testing</dt><dd>Thanks to <a href="https://scholar.google.com/citations?user=LFHsQmsAAAAJ&hl=en&oi=ao"
+        target="_blank" rel="">Stefanie</a>, <a href="https://scholar.google.com/citations?hl=en&user=CP3reFMAAAAJ"
+        target="_blank" rel="">Zach<a/>, <a href="" target="_blank" rel="">Chrissy<a/>, <a href="" target="_blank"
+        rel="">Andres<a/>, <a href="" target="_blank" rel=""> Raveen<a/>, etc. of the Becker Lab for testing.</dd>
       </dl>
     </div>
     <div class="dlgfoot">
-      <span class="sel"></span>
+      <span class="sel" id="diagLine"></span>
+      <button class="btn" id="copyDiag">Copy diagnostics</button>
       <button class="btn primary" id="aboutClose">Close</button>
     </div>
   </div>
 </div>
 
 <script>
-const ROWH = 24, BUF = 12;
+let ROWH = 24;
+const BUF = 12;
 const GROUP_COLOR = {PREAMBLE:'#6b7280',HEADER:'#a78bfa',END:'#f472b6',
   INPUT:'#fbbf24',MSG:'#5b9dff',FIX:'#36c08f',SACC:'#ff8a5b',BLINK:'#e879f9'};
 const C = {idx:0,cat:1,grp:2,mkind:3,start:4,end:5,dur:6,eye:7,x1:8,y1:9,
@@ -442,17 +538,27 @@ function msgCell(r){
 let FILES=[], active=-1, cache={};
 let ROWS=[], META=null, view=[];
 let sortCol=null, sortDir=1, selIdx=-1;
+let SEL=new Set();          // selected row indices (idx values)
+let anchorPos=-1;           // view position for shift-click ranges
+let HITS=[], hitSet=new Set(), hitAt=-1;   // highlight-mode matches
+let RENAMES={};             // path -> custom tab label
 const F = {groups:new Set(GROUPS), kinds:new Set(KINDS), eye:'', tmin:null,
   tmax:null, durFix:null, durSacc:null, msgInc:'', msgExc:'', msgRe:false,
-  search:'', searchRe:false};
+  search:'', searchRe:false, searchMode:'filter'};
 const $=id=>document.getElementById(id);
 
 const fileById=id=>FILES.find(f=>f.id===id);
 
 async function boot(){
+  loadRenames(); loadInfo();
+  try{
+    setTheme(localStorage.getItem('gama.theme')||'dark');
+    setFont(localStorage.getItem('gama.font')||'m');
+  }catch(e){ setTheme('dark'); setFont('m'); }
   buildSidebar(); buildHead(); buildColMenu();
   await refreshFiles();
   await refreshPresets();
+  if(await applyLinkFromHash()) return;
   if(FILES.length) await loadFile(FILES[0].id);
   else { showEmpty(true); openBrowser(); }
 }
@@ -475,14 +581,17 @@ function buildTabs(){
   const el=$('tabs'); el.innerHTML='';
   FILES.forEach(f=>{
     const t=document.createElement('div'); t.className='tab';
-    t.title=f.path||f.name; t.dataset.id=f.id;
-    const nm=document.createElement('span'); nm.textContent=f.name;
+    t.title=(RENAMES[f.path]?RENAMES[f.path]+'  —  ':'')+(f.path||f.name)+
+            '\n(double-click to rename)';
+    t.dataset.id=f.id;
+    const nm=document.createElement('span'); nm.textContent=RENAMES[f.path]||f.name;
     t.appendChild(nm);
     const x=document.createElement('span'); x.className='x'; x.textContent='✕';
-    x.title='Close file';
+    x.title='Close file (Alt+W)';
     x.onclick=(e)=>{ e.stopPropagation(); closeFile(f.id); };
     t.appendChild(x);
     t.onclick=()=>loadFile(f.id);
+    t.ondblclick=(e)=>{ e.stopPropagation(); renameTab(f); };
     el.appendChild(t);
   });
   const add=document.createElement('div');
@@ -529,7 +638,7 @@ async function loadFile(id){
     cache[id]=await res.json();
   }
   active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
-  selIdx=-1; $('details').classList.remove('open');
+  selIdx=-1; SEL.clear(); anchorPos=-1; $('details').classList.remove('open');
   $('fname').textContent=META.filename;
   updateCounts(); updatePlaceholders(); markTabs();
   loading.classList.add('hidden');
@@ -595,10 +704,145 @@ $('fbDrives').onchange=e=>fbLoad(e.target.value);
 $('fbPath').onkeydown=e=>{ if(e.key==='Enter') fbLoad(e.target.value); };
 $('fbCancel').onclick=()=>{ fbPicked.clear(); closeBrowser(); };
 $('mask').onclick=e=>{ if(e.target===$('mask')){ fbPicked.clear(); closeBrowser(); } };
+// ---- appearance (theme + text size), remembered per browser ----
+function setTheme(t){
+  document.body.classList.toggle('light', t==='light');
+  $('themeSel').value=t; try{ localStorage.setItem('gama.theme',t); }catch(e){}
+}
+function setFont(sz){
+  document.body.classList.remove('fs-s','fs-m','fs-l');
+  document.body.classList.add('fs-'+sz);
+  $('fontSel').value=sz; try{ localStorage.setItem('gama.font',sz); }catch(e){}
+  ROWH=parseInt(getComputedStyle(document.body).getPropertyValue('--rowh'))||24;
+  layout(); render();
+}
+$('themeSel').onchange=e=>setTheme(e.target.value);
+$('fontSel').onchange=e=>setFont(e.target.value);
+
+// ---- go to line ----
+function gotoLine(n){
+  if(!view.length) return;
+  let pos=view.findIndex(r=>r[C.idx]===n);
+  if(pos<0){
+    pos=view.findIndex(r=>r[C.idx]>=n);
+    if(pos<0) pos=view.length-1;
+    toast(`Line ${n} isn't in the current view — jumped to the nearest one`);
+  }
+  const r=view[pos];
+  selectRow(r[C.idx],pos,false,false);
+  scrollToPos(pos);
+}
+$('goto').addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  const n=parseInt(e.target.value,10);
+  if(!isNaN(n)) gotoLine(n);
+});
+
+// ---- share a link to the current view ----
+function viewLink(){
+  const f=fileById(active);
+  const payload={cfg:currentConfig(), path:f?f.path:null};
+  const b64=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  return location.origin+location.pathname+'#v='+b64;
+}
+async function copyViewLink(){
+  const url=viewLink();
+  try{ await navigator.clipboard.writeText(url); toast('View link copied'); }
+  catch(e){ prompt('Copy this link:', url); }
+}
+async function applyLinkFromHash(){
+  const m=location.hash.match(/#v=(.+)$/); if(!m) return false;
+  try{
+    const p=JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if(p.path){
+      const res=await fetch('/api/open',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({paths:[p.path]})});
+      const d=await res.json();
+      FILES=d.files; buildTabs();
+      if(d.added && d.added.length) await loadFile(d.added[0]);
+      else if(FILES.length) await loadFile(FILES[0].id);
+    }
+    if(p.cfg) applyConfig(p.cfg);
+    return true;
+  }catch(e){ console.warn('bad view link',e); return false; }
+}
+
+// ---- rename a tab (double-click) ----
+function loadRenames(){
+  try{ RENAMES=JSON.parse(localStorage.getItem('gama.renames')||'{}'); }
+  catch(e){ RENAMES={}; }
+}
+function saveRenames(){
+  try{ localStorage.setItem('gama.renames',JSON.stringify(RENAMES)); }catch(e){}
+}
+function renameTab(f){
+  const cur=RENAMES[f.path]||f.name;
+  const v=prompt('Label for this tab (blank resets to the filename):',cur);
+  if(v===null) return;
+  if(v.trim()) RENAMES[f.path]=v.trim(); else delete RENAMES[f.path];
+  saveRenames(); buildTabs();
+}
+
+// ---- keyboard shortcuts ----
+const typing=e=>/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
+document.addEventListener('keydown',e=>{
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod && e.key.toLowerCase()==='f'){ e.preventDefault(); $('search').focus(); $('search').select(); return; }
+  if(mod && e.key.toLowerCase()==='o'){ e.preventDefault(); openBrowser(); return; }
+  if(mod && e.key.toLowerCase()==='g'){ e.preventDefault(); $('goto').focus(); $('goto').select(); return; }
+  if(mod && e.key.toLowerCase()==='e'){ e.preventDefault(); closeMenus('expmenu'); $('expmenu').classList.toggle('open'); return; }
+  if(mod && e.key.toLowerCase()==='a' && !typing(e)){ e.preventDefault();
+    SEL=new Set(view.map(r=>r[C.idx])); updateCountLabel(); render(); return; }
+  if(mod && e.key.toLowerCase()==='c' && !typing(e) && SEL.size){ e.preventDefault(); copySelection(); return; }
+  if(e.altKey && e.key.toLowerCase()==='w'){ e.preventDefault(); if(active>=0) closeFile(active); return; }
+  if(e.altKey && /^[1-9]$/.test(e.key)){ e.preventDefault();
+    const f=FILES[+e.key-1]; if(f) loadFile(f.id); return; }
+  if(e.key==='?' && !typing(e)){ e.preventDefault(); $('aboutMask').classList.add('open'); return; }
+  if(e.key==='F3'){ e.preventDefault(); gotoHit(e.shiftKey?-1:1); return; }
+  if(typing(e)) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); moveSel(1,e.shiftKey); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); moveSel(-1,e.shiftKey); }
+  else if(e.key==='PageDown'){ e.preventDefault(); moveSel(Math.floor(scroll.clientHeight/ROWH),e.shiftKey); }
+  else if(e.key==='PageUp'){ e.preventDefault(); moveSel(-Math.floor(scroll.clientHeight/ROWH),e.shiftKey); }
+  else if(e.key==='Home'){ e.preventDefault(); anchorPos=0; moveSel(0,false); scroll.scrollTop=0; }
+  else if(e.key==='End'){ e.preventDefault(); anchorPos=view.length-1; moveSel(0,false);
+    scroll.scrollTop=scroll.scrollHeight; }
+});
+
 $('emptyAdd').onclick=()=>openBrowser();
 
 // ---- about / help dialog ----
-$('aboutBtn').onclick=()=>$('aboutMask').classList.add('open');
+let INFO=null;
+async function loadInfo(){
+  try{
+    const res=await fetch('/api/info'); INFO=await res.json();
+    $('verTag').textContent='v'+INFO.gama;
+    $('diagLine').textContent=`gama ${INFO.gama} · edfapi ${(INFO.edfapi||'').split(' ')[0]}`;
+  }catch(e){}
+}
+function diagText(){
+  if(!INFO) return 'diagnostics unavailable';
+  const L=[`gama ${INFO.gama}`,
+    `platform: ${INFO.platform} (${INFO.machine})`,
+    `python: ${INFO.python}${INFO.frozen?' (frozen)':''}`,
+    `eyelinkio: ${INFO.eyelinkio}`,
+    `edfapi: ${INFO.edfapi}`,
+    `ui: ${INFO.ui}`,
+    `base dir: ${INFO.base_dir}`,
+    `presets: ${INFO.presets_dir}`,
+    `browser: ${navigator.userAgent}`,
+    `files open: ${FILES.length}`,
+    `last error: ${INFO.last_error||'none'}`];
+  return L.join('\n');
+}
+$('copyDiag').onclick=async()=>{
+  await loadInfo();
+  const t=diagText();
+  try{ await navigator.clipboard.writeText(t); toast('Diagnostics copied'); }
+  catch(e){ prompt('Copy this:', t); }
+};
+$('aboutBtn').onclick=()=>{ loadInfo(); $('aboutMask').classList.add('open'); };
 $('aboutClose').onclick=()=>$('aboutMask').classList.remove('open');
 $('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classList.remove('open'); };
 document.addEventListener('keydown',e=>{
@@ -702,7 +946,7 @@ function apply(){
       if(incM && !incM(body)) continue;
       if(excM && excM(body)) continue;
     }
-    if(srch && !srch(r[C.raw])) continue;
+    if(srch && F.searchMode==='filter' && !srch(r[C.raw])) continue;
     view.push(r);
   }
   if(sortCol!==null){
@@ -715,9 +959,35 @@ function apply(){
       return x<y?-sortDir : x>y?sortDir : 0;
     });
   }
+  // highlight mode: rows stay in place, matches are marked instead
+  HITS=[]; hitSet=new Set();
+  if(srch && F.searchMode==='highlight'){
+    view.forEach((r,pos)=>{ if(srch(r[C.raw])){ HITS.push(pos); hitSet.add(r[C.idx]); } });
+  }
+  hitAt = HITS.length ? 0 : -1;
+  updateFindbar();
   $('count').textContent =
-    `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines`;
+    `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines` +
+    (SEL.size ? `  ·  ${SEL.size.toLocaleString()} selected` : '');
   buildHead(); layout(); render();
+}
+
+function updateFindbar(){
+  const on = F.searchMode==='highlight' && F.search;
+  $('findbar').style.display = on ? 'flex' : 'none';
+  if(!on) return;
+  $('hitCount').textContent = HITS.length
+    ? `${hitAt+1} / ${HITS.length.toLocaleString()} matches` : 'no matches';
+}
+function gotoHit(step){
+  if(!HITS.length) return;
+  hitAt=(hitAt+step+HITS.length)%HITS.length;
+  scrollToPos(HITS[hitAt]);
+  updateFindbar(); render();
+}
+function scrollToPos(pos){
+  const target=pos*ROWH - scroll.clientHeight/2 + ROWH/2;
+  scroll.scrollTop=Math.max(0,target);
 }
 
 const vport=$('vport'), scroll=$('scroll');
@@ -734,7 +1004,11 @@ function render(){
   let html='';
   for(let i=first;i<last;i++){
     const r=view[i];
-    html+=`<div class="tr${r[C.idx]===selIdx?' sel':''}" style="top:${i*ROWH}px;width:${rowWidth()}px" data-i="${r[C.idx]}">`;
+    const cls=['tr'];
+    if(SEL.has(r[C.idx])) cls.push('sel');
+    if(hitSet.has(r[C.idx])) cls.push('hit');
+    if(hitAt>=0 && HITS[hitAt]===i) cls.push('cur');
+    html+=`<div class="${cls.join(' ')}" style="top:${i*ROWH}px;width:${rowWidth()}px" data-i="${r[C.idx]}" data-p="${i}">`;
     for(const c of COLS){
       if(c.hidden) continue;
       let v=c.get(r); if(v===''||v===undefined||v===null) v='';
@@ -757,8 +1031,76 @@ window.addEventListener('resize',render);
 
 vport.addEventListener('click',e=>{
   const tr=e.target.closest('.tr'); if(!tr) return;
-  selIdx=parseInt(tr.dataset.i,10); showDetails(selIdx); render();
+  const idx=parseInt(tr.dataset.i,10), pos=parseInt(tr.dataset.p,10);
+  selectRow(idx,pos,e.shiftKey,e.ctrlKey||e.metaKey);
 });
+
+function selectRow(idx,pos,extend,toggle){
+  if(extend && anchorPos>=0){
+    const a=Math.min(anchorPos,pos), b=Math.max(anchorPos,pos);
+    if(!toggle) SEL.clear();
+    for(let i=a;i<=b;i++) SEL.add(view[i][C.idx]);
+  } else if(toggle){
+    SEL.has(idx) ? SEL.delete(idx) : SEL.add(idx);
+    anchorPos=pos;
+  } else {
+    SEL.clear(); SEL.add(idx); anchorPos=pos;
+  }
+  selIdx=idx; showDetails(idx);
+  updateCountLabel(); render();
+}
+function updateCountLabel(){
+  if(!META) return;
+  $('count').textContent =
+    `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines` +
+    (SEL.size ? `  ·  ${SEL.size.toLocaleString()} selected` : '');
+}
+function moveSel(step,extend){
+  if(!view.length) return;
+  let pos = anchorPos;
+  if(pos<0){ pos=0; } else { pos=Math.min(view.length-1,Math.max(0,pos+step)); }
+  const r=view[pos];
+  selectRow(r[C.idx],pos,extend,false);
+  // keep the cursor row on screen
+  const top=pos*ROWH;
+  if(top < scroll.scrollTop) scroll.scrollTop=top;
+  else if(top+ROWH > scroll.scrollTop+scroll.clientHeight)
+    scroll.scrollTop = top+ROWH-scroll.clientHeight;
+}
+
+// ---- copy selection as TSV ----
+function selectionTSV(){
+  const cols=COLS.filter(c=>!c.hidden);
+  const rows=(SEL.size? view.filter(r=>SEL.has(r[C.idx])) : view);
+  const out=[cols.map(c=>c.label).join('\t')];
+  rows.forEach(r=>out.push(cols.map(c=>{
+    let v=c.get(r); return (v===undefined||v===null)?'':(''+v).trim();
+  }).join('\t')));
+  return out.join('\n');
+}
+async function copySelection(){
+  const text=selectionTSV();
+  try{ await navigator.clipboard.writeText(text); }
+  catch(e){
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    ta.remove();
+  }
+  const n=SEL.size||view.length;
+  toast(`Copied ${n.toLocaleString()} row${n===1?'':'s'}`);
+}
+let toastTimer=null;
+function toast(msg){
+  let t=$('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t);
+    t.style.cssText='position:fixed;bottom:18px;left:50%;transform:translateX(-50%);'+
+      'background:var(--panel2);border:1px solid var(--line);border-radius:8px;'+
+      'padding:8px 14px;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.4)'; }
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.style.display='none',1600);
+}
 function showDetails(idx){
   const r=ROWS[idx]; const det=$('details');
   const fields=[['Index',r[C.idx]],['Type',r[C.cat]],['Group',r[C.grp]],
@@ -780,6 +1122,14 @@ const onType=deb(()=>{
   F.msgInc=$('msgInc').value; F.msgExc=$('msgExc').value; F.search=$('search').value; apply(); },180);
 ['msgInc','msgExc','search'].forEach(id=>$(id).addEventListener('input',onType));
 $('msgRe').onchange=e=>{F.msgRe=e.target.checked;apply();};
+$('searchMode').onchange=e=>{F.searchMode=e.target.value;apply();};
+$('hitNext').onclick=()=>gotoHit(1);
+$('hitPrev').onclick=()=>gotoHit(-1);
+$('search').addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  if(F.searchMode==='highlight') gotoHit(e.shiftKey?-1:1);
+});
 $('searchRe').onchange=e=>{F.searchRe=e.target.checked;apply();};
 $('eyeSel').onchange=e=>{F.eye=e.target.value;apply();};
 $('tsMode').onchange=e=>{ REL=e.target.value==='rel'; updatePlaceholders(); apply(); };
@@ -811,7 +1161,7 @@ function currentConfig(){
   return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
     tmin:F.tmin, tmax:F.tmax, durFix:F.durFix, durSacc:F.durSacc,
     msgInc:F.msgInc, msgExc:F.msgExc, msgRe:F.msgRe,
-    search:F.search, searchRe:F.searchRe, rel:REL,
+    search:F.search, searchRe:F.searchRe, searchMode:F.searchMode, rel:REL,
     cols:COLS.filter(c=>!c.hidden).map(c=>c.k)};
 }
 function applyConfig(cfg){
@@ -828,6 +1178,7 @@ function applyConfig(cfg){
   $('msgInc').value=F.msgInc; $('msgExc').value=F.msgExc; $('search').value=F.search;
   F.msgRe=!!cfg.msgRe; F.searchRe=!!cfg.searchRe;
   $('msgRe').checked=F.msgRe; $('searchRe').checked=F.searchRe;
+  F.searchMode=cfg.searchMode||'filter'; $('searchMode').value=F.searchMode;
   REL=!!cfg.rel; $('tsMode').value=REL?'rel':'abs';
   if(cfg.cols){ COLS.forEach(c=>c.hidden=!cfg.cols.includes(c.k));
     buildColMenu(); }
@@ -894,11 +1245,16 @@ async function exportAll(fmt){
   download(await post('/api/export_all',{opts:currentOpts(),format:fmt,relative:REL}),
     'edf_export_'+fmt+'.zip');
 }
-$('expmenu').querySelectorAll('.mi').forEach(mi=>mi.onclick=()=>{
-  const fmt=mi.dataset.fmt;
-  if(mi.dataset.scope==='one') exportOne(fmt); else exportAll(fmt);
-  $('expmenu').classList.remove('open');
+$('expmenu').querySelectorAll('.mi').forEach(mi=>{
+  if(!mi.dataset.fmt) return;
+  mi.onclick=()=>{
+    const fmt=mi.dataset.fmt;
+    if(mi.dataset.scope==='one') exportOne(fmt); else exportAll(fmt);
+    $('expmenu').classList.remove('open');
+  };
 });
+$('copyLink').onclick=()=>{ copyViewLink(); $('expmenu').classList.remove('open'); };
+$('copyRows').onclick=()=>{ copySelection(); $('expmenu').classList.remove('open'); };
 
 boot();
 </script>
