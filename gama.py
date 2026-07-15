@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 r"""
 Caleb De Odorico
-gama.py -- Easy EyeLink EDF Explorer and Exporter
+gama.py -- Easy EyeLink 1orer and Exporter
 ================================================
 
 A single-file tool that opens SR Research EyeLink ``.EDF`` recordings and lets
@@ -1283,8 +1283,8 @@ def serve(paths, converted_from_line, port, open_browser, presets_dir):
         make_handler(reg, converted_from_line, presets_dir))
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     n = len(paths)
-    print(f"EDF Explorer: {n} file(s) preloaded"
-          if n else "EDF Explorer: add files from the browser (+ tab)")
+    print(f"Gama: {n} file(s) preloaded"
+          if n else "Gama: add files from the browser (+ tab)")
     print(f"Presets folder: {presets_dir}")
     print(f"Running at {url}\nPress Ctrl+C to stop.\n")
     if open_browser:
