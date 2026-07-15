@@ -80,6 +80,48 @@ ASC exports always keep absolute timestamps, otherwise they wouldn't be valid AS
 
 Save a set of filters from the sidebar in `presets/` next to the script as a small JSON file. They're  text and one file per preset, so you can commit them, email them, or hand-edit them, etc..
 
+Keyboard shortcuts
+`Ctrl` is `⌘` on macOS. Press `?` inside gama to see this list without leaving the app.
+Finding things
+Key	Action
+`Ctrl` + `F`	Jump to the search box
+`Enter`	Next match (highlight mode)
+`Shift` + `Enter`	Previous match
+`F3` / `Shift` + `F3`	Next / previous match, from anywhere
+`Ctrl` + `G`	Jump to the "Go to #" box — type a line number, `Enter` to go
+Moving around the table
+Key	Action
+`↑` / `↓`	Up / down one row
+`PgUp` / `PgDn`	Up / down one screen
+`Home` / `End`	First / last row
+`Shift` + any of the above	Extend the selection as you move
+Selecting and copying
+Key	Action
+Click	Select a row
+`Shift` + click	Select a range
+`Ctrl` + click	Add or remove a single row
+`Ctrl` + `A`	Select everything in the current view
+`Ctrl` + `C`	Copy the selection as TSV — paste straight into Excel
+With nothing selected, `Ctrl` + `C` copies the whole view. Only the visible columns
+are copied, so hide what you don't want first.
+Files and tabs
+Key	Action
+`Ctrl` + `O`	Add EDF files
+`Alt` + `1` … `Alt` + `9`	Switch to tab 1–9
+`Alt` + `W`	Close the current tab
+Double-click a tab	Rename it
+Everything else
+Key	Action
+`Ctrl` + `E`	Open the export menu
+`?`	Open About / Help
+`Esc`	Close the open dialog
+Why Alt and not Ctrl for tabs
+`Ctrl` + `W` and `Ctrl` + `Tab` belong to the browser and a page can't intercept
+them — `Ctrl` + `W` would close your browser tab, not the file. Hence `Alt` + `W`
+and `Alt` + `1…9`.
+`Ctrl` + `A` and `Ctrl` + `C` are ignored while the cursor is in a filter box, so
+select-all and copy still behave normally when you're typing.
+
 ## Notes and limitations
 
 - Events only. Samples aren't loaded, which is why it's fast and why there's no
