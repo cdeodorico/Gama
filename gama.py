@@ -27,7 +27,7 @@ import sys
 import ctypes as C
 from decimal import Decimal, ROUND_HALF_UP
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 # ---------------------------------------------------------------------------
