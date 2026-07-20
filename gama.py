@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 r"""
-Caleb De Odorico
-gama.py -- Easy EyeLinplorer and Exporter
+gama.py -- EyeLink EDF Explorer (self-contained)
 ================================================
 
 A single-file tool that opens SR Research EyeLink ``.EDF`` recordings and lets
-one explore their converted ASC representation in a fast, spreadsheet-like web
-UI, or filter/convert/export them from the command line.  Using a byte-identical
-EDF->ASC engine, Gama allows the user to explore and manipulate recordings.
+you explore their converted ASC representation in a fast, spreadsheet-like web
+UI, or filter/convert/export them from the command line.  The byte-identical
+EDF->ASC engine and the interactive app are bundled together in this one file,
+so there is nothing to install or keep alongside it.
 
 Run with no arguments to choose file(s) with a dialog::
 
@@ -19,16 +19,6 @@ Head-less / batch::
     python gama.py rec.EDF --stats
     python gama.py rec.EDF --export events.asc --only FIX,SACC,BLINK
     python gama.py *.EDF   --export out_dir --format csv --relative
-
-Note to anyone trying to improve on this: Please spare yourselves the trouble.
-SR Research has seen to it that these files remain annoying to parse. I imagine
-in a pursuit to sell their own software. I hate that, with a passion. Science
-is about openly sharing information with one-another. I understand that in a
-capitalist society one must create capital to survive. I hate this. In order
-to be a human, one must create wonder, passion, creativity, being. These aren't
-valued under capitalism. I hate capitalism. I am wasting precious compiler space
-to tell you this. Find wonder in the world and keep it from those who seek to
-exploit it. Be free and be good.
 """
 
 import argparse
@@ -83,9 +73,7 @@ EYE_LETTER = {0: "L", 1: "R", 2: "L"}
 EYE_WORD = {0: "LEFT", 1: "RIGHT", 2: "BINOCULAR"}
 
 DEFAULT_CONVERTED_FROM = (
-    "** CONVERTED FROM C:\\Users\\Canaan\\PycharmProjects\\Landolt_Exp\\data\\"
-    "AP_2026_05_19_13_58\\AP_2026_05_19_13_58.EDF using edfapi 4.4.1 Win32  "
-    "EyeLink Dataviewer Subcomponent Mar 19 2024 on Sat May 23 22:15:57 2026"
+    "** CONVERTED USING GAMA " + __version__
 )
 
 SP = " "  # the literal trailing space edf2asc writes after START/END times
@@ -216,7 +204,7 @@ class _Block:
 # samples are dropped.  Blocks are accumulated with a FIFO of open recordings
 # so that paused/resumed (same-timestamp) recordings are attributed correctly.
 # ---------------------------------------------------------------------------
-def _read_edf(edf_path):
+def _read_edf(edf_path, progress=None):
     E = _load_edfapi()
     err = C.c_int(0)
     # consistency=0, load_events=1, load_samples=0  (events-only output; END-line
@@ -245,12 +233,16 @@ def _read_edf(edf_path):
     devnull = os.open(os.devnull, os.O_WRONLY)
     saved_stdout = os.dup(1)
     os.dup2(devnull, 1)
+    seen = 0
     try:
         while True:
             t = E.edf_get_next_data(ef)
             if t == NO_PENDING_ITEMS:
                 break
             fd = E.edf_get_float_data(ef)
+            seen += 1
+            if progress is not None and (seen & 0x3FFF) == 0:  # every ~16k items
+                progress(seen)
 
             if t == RECORDING_INFO:
                 rec = fd.contents.rec
@@ -324,6 +316,8 @@ def _read_edf(edf_path):
         os.close(devnull)
         E.edf_close_file(ef)
 
+    if progress is not None:
+        progress(seen)
     return preamble, elements, blocks
 
 
@@ -509,14 +503,15 @@ def _render(preamble, elements, blocks, converted_from_line):
     return records
 
 
-def build_records(edf_path, converted_from_line=DEFAULT_CONVERTED_FROM):
+def build_records(edf_path, converted_from_line=DEFAULT_CONVERTED_FROM,
+                  progress=None):
     """Parse an EDF and return (records, blocks).
 
     ``records`` is the full ordered list of output-line records (see _render);
     joining their ``text`` with CRLF reproduces the byte-identical ASC.  This is
     the entry point used by the interactive explorer.
     """
-    preamble, elements, blocks = _read_edf(edf_path)
+    preamble, elements, blocks = _read_edf(edf_path, progress)
     elements = _coalesce_blinks(elements)
     records = _render(preamble, elements, blocks, converted_from_line)
     return records, blocks
@@ -732,6 +727,58 @@ EXPORT_COLUMNS = ["idx", "category", "group", "msg_kind", "start", "end",
 
 DEFAULT_PRESETS_DIR = os.path.join(BASE_DIR, "presets")
 _PRESETS_LOCK = threading.Lock()
+_NOTES_LOCK = threading.Lock()
+
+
+def _notes_path(edf_path):
+    """Sidecar file for a recording's row flags/notes, next to the .EDF."""
+    return edf_path + ".gama-notes.json"
+
+
+def load_notes(edf_path):
+    """Return {line_index(str): {"flag": bool, "note": str}} for a recording."""
+    p = _notes_path(edf_path)
+    if not os.path.isfile(p):
+        return {}
+    try:
+        with open(p, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        notes = data.get("notes", data)          # tolerate a bare mapping
+        out = {}
+        for k, v in notes.items():
+            if isinstance(v, dict):
+                out[str(k)] = {"flag": bool(v.get("flag")),
+                               "note": str(v.get("note") or "")}
+        return out
+    except (OSError, ValueError):
+        return {}
+
+
+def save_notes(edf_path, notes):
+    """Write the notes sidecar; drop empty entries; remove the file if none."""
+    clean = {}
+    for k, v in (notes or {}).items():
+        flag = bool(v.get("flag"))
+        note = str(v.get("note") or "").strip()
+        if flag or note:
+            clean[str(k)] = {"flag": flag, "note": note}
+    p = _notes_path(edf_path)
+    with _NOTES_LOCK:
+        try:
+            if not clean:
+                if os.path.isfile(p):
+                    os.remove(p)
+                return {}
+            payload = {"tool": "gama", "version": __version__,
+                       "source_file": os.path.basename(edf_path),
+                       "notes": clean}
+            tmp = p + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2)
+            os.replace(tmp, p)
+        except OSError:
+            pass
+    return clean
 
 
 def _parse(rec):
@@ -781,9 +828,9 @@ def _parse(rec):
     return d
 
 
-def build_dataset(edf_path, converted_from_line):
+def build_dataset(edf_path, converted_from_line, progress=None):
     """Parse the EDF and return (records, wire_payload, parsed_rows)."""
-    records, _blocks = em.build_records(edf_path, converted_from_line)
+    records, _blocks = em.build_records(edf_path, converted_from_line, progress)
     rows, parsed, times = [], [], []
     group_counts, kind_counts = {}, {}
     for idx, rec in enumerate(records):
@@ -871,6 +918,37 @@ def filter_indices(rows, parsed, opts):
     return out
 
 
+def build_provenance(entry, fmt, opts_json, relative, n_rows):
+    """A small JSON recording how an export was produced, for reproducibility.
+
+    Written only for CSV/TSV/HTML (never ASC, which is meant to be a faithful
+    edf2asc reproduction with nothing extra alongside it).
+    """
+    import datetime
+    filt = {k: v for k, v in (opts_json or {}).items()
+            if v not in (None, "", [], {}, False)}
+    return {
+        "tool": "gama",
+        "version": __version__,
+        "exported_utc": datetime.datetime.now(
+            datetime.timezone.utc).replace(microsecond=0).isoformat(),
+        "source_file": entry.name,
+        "source_path": entry.path,
+        "format": fmt,
+        "timestamps": "relative_to_file_start" if relative else "absolute",
+        "rows_written": n_rows,
+        "source_total_lines": len(entry.records) if entry.records else None,
+        "filters": filt,
+        "edfapi": _edfapi_version(),
+    }
+
+
+def _provenance_bytes(entry, fmt, opts_json, relative, n_rows):
+    return json.dumps(
+        build_provenance(entry, fmt, opts_json, relative, n_rows),
+        indent=2).encode("utf-8")
+
+
 def _opts_from_json(j):
     kinds = j.get("kinds")
     return {
@@ -895,11 +973,17 @@ def export_asc(records, indices):
     return em.records_to_bytes(subset), "text/plain"
 
 
-def export_table(parsed, rows, indices, delimiter, relative=False, tref=0):
+def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
+                 notes=None):
     import csv
+    notes = notes or {}
+    has_notes = bool(notes)
     buf = StringIO()
     w = csv.writer(buf, delimiter=delimiter, lineterminator="\n")
-    w.writerow(EXPORT_COLUMNS)
+    header = list(EXPORT_COLUMNS)
+    if has_notes:
+        header += ["flagged", "note"]
+    w.writerow(header)
     for i in indices:
         if not (0 <= i < len(parsed)):
             continue
@@ -911,10 +995,18 @@ def export_table(parsed, rows, indices, delimiter, relative=False, tref=0):
             if isinstance(en, int):
                 en -= tref
         msg = (d["msg"] or "").replace("\r", " ").replace("\n", " ")
-        w.writerow([i, r[I_CAT], r[I_GRP], r[I_MK], st, en,
-                    d["dur"], d["eye"], d["x1"], d["y1"], d["x2"], d["y2"],
-                    d["amp"], d["vel"], d["pupil"], d["resx"], d["resy"],
-                    d["val"], msg])
+        row = [i, r[I_CAT], r[I_GRP], r[I_MK], st, en,
+               d["dur"], d["eye"], d["x1"], d["y1"], d["x2"], d["y2"],
+               d["amp"], d["vel"], d["pupil"], d["resx"], d["resy"],
+               d["val"], msg]
+        if has_notes:
+            nv = notes.get(str(i))
+            if nv:
+                row += ["1" if nv.get("flag") else "",
+                        (nv.get("note") or "").replace("\r", " ").replace("\n", " ")]
+            else:
+                row += ["", ""]
+        w.writerow(row)
     return buf.getvalue().encode("utf-8"), "text/csv"
 
 
@@ -930,6 +1022,8 @@ _HTML_DOC = """<!DOCTYPE html>
  th{{background:#f3f4f6;position:sticky;top:0}}
  td.msg{{white-space:normal;font-variant-numeric:normal}}
  tr:nth-child(even){{background:#fafafa}}
+ tr.flagged{{background:#fff3cd}}
+ tr.flagged:nth-child(even){{background:#ffeeba}}
  @media print{{body{{margin:8px}} th{{position:static}}}}
 </style>
 <h1>{title}</h1>
@@ -944,9 +1038,15 @@ def _esc(v):
     return (str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
-def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view"):
+def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
+                notes=None):
     """A standalone, self-contained HTML copy of the current view (printable)."""
-    head = "".join(f"<th>{_esc(c)}</th>" for c in EXPORT_COLUMNS)
+    notes = notes or {}
+    has_notes = bool(notes)
+    cols = list(EXPORT_COLUMNS)
+    if has_notes:
+        cols += ["flagged", "note"]
+    head = "".join(f"<th>{_esc(c)}</th>" for c in cols)
     out = []
     for i in indices:
         if not (0 <= i < len(parsed)):
@@ -964,7 +1064,13 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view")
                  d["pupil"], d["resx"], d["resy"], d["val"]]
         tds = "".join(f"<td>{_esc(c)}</td>" for c in cells)
         tds += f'<td class="msg">{_esc(msg)}</td>'
-        out.append(f"<tr>{tds}</tr>")
+        nv = notes.get(str(i)) if has_notes else None
+        if has_notes:
+            flag_mark = "\u2691" if (nv and nv.get("flag")) else ""
+            tds += "<td>" + flag_mark + "</td>"
+            tds += f'<td class="msg">{_esc(nv.get("note") if nv else "")}</td>'
+        cls = ' class="flagged"' if (nv and nv.get("flag")) else ""
+        out.append(f"<tr{cls}>{tds}</tr>")
     sub = (f"{len(out):,} rows &middot; times "
            f"{'relative to file start' if relative else 'absolute'} &middot; "
            f"exported by gama {__version__}")
@@ -974,19 +1080,20 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view")
 
 
 def export_bytes(entry, indices, fmt, relative):
+    notes = getattr(entry, "notes", None) or None
     if fmt == "asc":
         body, _ = export_asc(entry.records, indices)
         return body, ".asc"
     if fmt == "tsv":
         body, _ = export_table(entry.parsed, entry.rows, indices, "\t",
-                               relative, entry.tmin)
+                               relative, entry.tmin, notes)
         return body, ".tsv"
     if fmt == "html":
         body, _ = export_html(entry.parsed, entry.rows, indices, relative,
-                              entry.tmin, entry.name)
+                              entry.tmin, entry.name, notes)
         return body, ".html"
     body, _ = export_table(entry.parsed, entry.rows, indices, ",",
-                           relative, entry.tmin)
+                           relative, entry.tmin, notes)
     return body, ".csv"
 
 
@@ -1068,8 +1175,11 @@ class FileEntry:
         self.lock = threading.Lock()
         self.ready = False
         self.error = None
+        self.parsing = False       # True while the parse thread is running
+        self.progress = 0          # items read so far (no total is available)
         self.tmin = self.tmax = 0
         self.records = self.parsed = self.rows = self.payload_gz = None
+        self.notes = {}            # line_index(str) -> {"flag":bool,"note":str}
 
 
 def _ensure_parsed(entry, converted_from_line):
@@ -1078,8 +1188,16 @@ def _ensure_parsed(entry, converted_from_line):
             return
         try:
             print(f"Parsing {entry.name} ...", flush=True)
-            records, payload, parsed = build_dataset(entry.path, converted_from_line)
+            entry.parsing = True
+            entry.progress = 0
+
+            def _prog(n):
+                entry.progress = n
+
+            records, payload, parsed = build_dataset(
+                entry.path, converted_from_line, _prog)
             entry.records, entry.parsed, entry.rows = records, parsed, payload["rows"]
+            entry.notes = load_notes(entry.path)
             entry.tmin, entry.tmax = payload["meta"]["tmin"], payload["meta"]["tmax"]
             entry.payload_gz = gzip.compress(
                 json.dumps(payload, separators=(",", ":")).encode("utf-8"), 6)
@@ -1095,6 +1213,8 @@ def _ensure_parsed(entry, converted_from_line):
             # Recorded once; the browser is shown the message instead of the
             # request being retried forever.
             print(f"\nERROR parsing {entry.name}:\n{entry.error}", flush=True)
+        finally:
+            entry.parsing = False
 
 
 LAST_ERROR = None
@@ -1271,6 +1391,26 @@ def make_handler(reg, converted_from_line, presets_dir):
                 self._json(browse_dir(q.get("path", [""])[0]))
             elif route == "/api/presets":
                 self._json(_load_presets(presets_dir))
+            elif route == "/api/progress":
+                entry = reg.get(self._file_arg())
+                if entry is None:
+                    self._json({"state": "gone"})
+                elif entry.error:
+                    self._json({"state": "error"})
+                elif entry.ready:
+                    self._json({"state": "ready", "seen": entry.progress})
+                else:
+                    # read the plain int without taking entry.lock, which the
+                    # parse thread holds for its whole duration
+                    self._json({"state": "parsing" if entry.parsing else "queued",
+                                "seen": entry.progress})
+            elif route == "/api/notes":
+                entry = reg.get(self._file_arg())
+                if entry is None:
+                    self._send(404, b"file not open", "text/plain")
+                    return
+                _ensure_parsed(entry, converted_from_line)
+                self._json({"notes": entry.notes})
             elif route == "/api/rows":
                 entry = reg.get(self._file_arg())
                 if entry is None:
@@ -1303,8 +1443,29 @@ def make_handler(reg, converted_from_line, presets_dir):
                 self._open_files()
             elif route == "/api/close":
                 self._close_file()
+            elif route == "/api/notes":
+                self._write_note()
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def _write_note(self):
+            req = self._body()
+            entry = reg.get(req.get("file"))
+            if entry is None:
+                self._send(404, b"file not open", "text/plain")
+                return
+            _ensure_parsed(entry, converted_from_line)
+            line = str(req.get("line"))
+            flag = bool(req.get("flag"))
+            note = str(req.get("note") or "").strip()
+            with entry.lock:
+                if flag or note:
+                    entry.notes[line] = {"flag": flag, "note": note}
+                else:
+                    entry.notes.pop(line, None)
+                entry.notes = save_notes(entry.path, entry.notes)
+            self._json({"notes": entry.notes,
+                        "path": _notes_path(entry.path)})
 
         def _open_files(self):
             req = self._body()
@@ -1332,9 +1493,24 @@ def make_handler(reg, converted_from_line, presets_dir):
             if entry.error:
                 self._send(500, entry.error.encode("utf-8"), "text/plain")
                 return
-            body, ext = export_bytes(entry, req.get("indices", []),
-                                     req.get("format", "asc"),
-                                     req.get("relative", False))
+            fmt = req.get("format", "asc")
+            relative = req.get("relative", False)
+            indices = req.get("indices", [])
+            body, ext = export_bytes(entry, indices, fmt, relative)
+            # A provenance sidecar is offered for data exports (never ASC).  Since
+            # a browser download is a single file, we bundle export + sidecar in a
+            # small ZIP when it's requested.
+            if req.get("sidecar") and fmt != "asc":
+                prov = _provenance_bytes(entry, fmt, req.get("opts", {}),
+                                         relative, len(indices))
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                    z.writestr(f"{entry.base}_filtered{ext}", body)
+                    z.writestr(f"{entry.base}_filtered.gama.json", prov)
+                self._send(200, buf.getvalue(), "application/zip",
+                           {"Content-Disposition":
+                            f'attachment; filename="{entry.base}_filtered.zip"'})
+                return
             self._send(200, body, "application/octet-stream",
                        {"Content-Disposition":
                         f'attachment; filename="{entry.base}_filtered{ext}"'})
@@ -1343,7 +1519,9 @@ def make_handler(reg, converted_from_line, presets_dir):
             req = self._body()
             fmt = req.get("format", "asc")
             relative = req.get("relative", False)
-            opts = _opts_from_json(req.get("opts", {}))
+            sidecar = bool(req.get("sidecar")) and fmt != "asc"
+            opts_json = req.get("opts", {})
+            opts = _opts_from_json(opts_json)
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
                 for entry in reg.entries():
@@ -1353,6 +1531,10 @@ def make_handler(reg, converted_from_line, presets_dir):
                     idx = filter_indices(entry.rows, entry.parsed, opts)
                     body, ext = export_bytes(entry, idx, fmt, relative)
                     z.writestr(f"{entry.base}_filtered{ext}", body)
+                    if sidecar:
+                        z.writestr(f"{entry.base}_filtered.gama.json",
+                                   _provenance_bytes(entry, fmt, opts_json,
+                                                     relative, len(idx)))
             data = buf.getvalue()
             self._send(200, data, "application/zip",
                        {"Content-Disposition":
@@ -1383,8 +1565,8 @@ def serve(paths, converted_from_line, port, open_browser, presets_dir):
         make_handler(reg, converted_from_line, presets_dir))
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     n = len(paths)
-    print(f"Gama: {n} file(s) preloaded"
-          if n else "Gama: add files from the browser (+ tab)")
+    print(f"EDF Explorer: {n} file(s) preloaded"
+          if n else "EDF Explorer: add files from the browser (+ tab)")
     print(f"Presets folder: {presets_dir}")
     print(f"Running at {url}\nPress Ctrl+C to stop.\n")
     if open_browser:
@@ -1415,6 +1597,20 @@ def _opts_from_args(args):
         "contains": args.contains, "exclude": args.exclude,
         "contains_regex": args.regex,
         "search": args.search, "search_regex": args.regex,
+    }
+
+
+def _opts_json_from_args(args):
+    """The GUI-shaped opts dict (for provenance), from CLI args."""
+    o = _opts_from_args(args)
+    return {
+        "groups": sorted(o["groups"]) if o["groups"] else None,
+        "kinds": sorted(o["kinds"]) if o["kinds"] else None,
+        "eye": o["eye"], "tmin": o["tmin"], "tmax": o["tmax"],
+        "min_fix": o["min_fix"], "min_sacc": o["min_sacc"],
+        "contains": o["contains"], "exclude": o["exclude"],
+        "contains_regex": o["contains_regex"],
+        "search": o["search"], "search_regex": o["search_regex"],
     }
 
 
@@ -1479,6 +1675,17 @@ def _headless(args, paths):
             with open(out, "wb") as fh:
                 fh.write(body)
             print(f"Wrote {len(indices):,} rows ({len(body):,} bytes) -> {out}")
+            if getattr(args, "sidecar", False) and fmt != ".asc":
+                shim = type("E", (), {"name": os.path.basename(path),
+                                      "path": os.path.abspath(path),
+                                      "records": records})()
+                prov = build_provenance(
+                    shim, fmt.lstrip("."),
+                    _opts_json_from_args(args), args.relative, len(indices))
+                side = os.path.splitext(out)[0] + ".gama.json"
+                with open(side, "w") as fh:
+                    json.dump(prov, fh, indent=2)
+                print(f"  + provenance -> {side}")
 
 
 def main(argv=None):
@@ -1503,6 +1710,9 @@ def main(argv=None):
                     help="export format (overrides extension; needed for batch)")
     ap.add_argument("--relative", action="store_true",
                     help="write CSV/TSV times relative to each file's start")
+    ap.add_argument("--sidecar", action="store_true",
+                    help="also write a .gama.json provenance file next to each "
+                         "CSV/TSV/HTML export (never for ASC)")
     ap.add_argument("--stats", action="store_true",
                     help="head-less: print a summary of the (filtered) data")
     ap.add_argument("--only", help="keep only these groups (comma list): " +

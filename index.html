@@ -58,6 +58,30 @@
   .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
     display:none;align-items:center;justify-content:center}
   .mask.open{display:flex}
+  /* command palette */
+  .pal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;
+    display:none;justify-content:center;align-items:flex-start}
+  .pal-wrap.open{display:flex}
+  .pal{margin-top:12vh;width:min(620px,92vw);background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;
+    max-height:70vh}
+  .pal input{margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;
+    padding:14px 16px;font-size:15px;background:transparent}
+  .pal input:focus{outline:none}
+  .pal-list{overflow:auto;padding:6px}
+  .pal-item{display:flex;align-items:center;gap:10px;padding:8px 10px;
+    border-radius:7px;cursor:pointer}
+  .pal-item .pi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pal-item .pi-cat{color:var(--muted);font-size:11px;text-transform:uppercase;
+    letter-spacing:.5px}
+  .pal-item .pi-key{color:var(--muted);font-size:11px;border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums}
+  .pal-item.on{background:var(--rowsel)}
+  .pal-item mark{background:transparent;color:var(--accent);font-weight:700}
+  .pal-empty{padding:16px;color:var(--muted);text-align:center}
+  .pal-foot{border-top:1px solid var(--line);padding:6px 12px;color:var(--muted);
+    font-size:11px}
   .dlg{background:var(--panel);border:1px solid var(--line);border-radius:10px;
     width:min(760px,92vw);height:min(560px,88vh);display:flex;
     flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.6)}
@@ -132,6 +156,14 @@
     overflow:hidden;text-overflow:ellipsis;user-select:none}
   .th:hover{color:var(--txt)}
   .th .ar{color:var(--accent);margin-left:3px}
+  .cfrow{display:flex;position:sticky;top:var(--headh,29px);z-index:4;
+    background:var(--panel);border-bottom:1px solid var(--line)}
+  .cfrow.off{display:none}
+  .cf{flex:none;border-right:1px solid var(--line);padding:2px 3px}
+  .cf input{width:100%;margin:0;padding:2px 5px;font-size:11px;
+    background:var(--bg);border:1px solid var(--line);border-radius:3px}
+  .cf input.bad{border-color:#e05252}
+  .cf input:focus{border-color:var(--accent);outline:none}
   .vport{position:relative}
   .tr{display:flex;position:absolute;left:0;right:0;height:var(--rowh);
     align-items:center;border-bottom:1px solid var(--gridline)}
@@ -140,6 +172,18 @@
   .tr:hover{background:var(--rowhover)}
   .tr.sel{background:var(--rowsel)}
   .tr.hit{box-shadow:inset 3px 0 0 #fbbf24;background:var(--hit)}
+  .tr.flagged{background:rgba(251,191,36,.10)}
+  .tr.flagged.sel{background:var(--rowsel)}
+  .idxcell{display:flex;align-items:center;gap:4px}
+  .flagmark{cursor:pointer;opacity:.30;font-size:11px;line-height:1}
+  .flagmark.on{opacity:1;color:#f5a623}
+  .flagmark:hover{opacity:.8}
+  .noteedit{display:flex;align-items:center;gap:10px;margin-bottom:10px;
+    padding:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px}
+  .noteedit .flagtog{display:flex;align-items:center;gap:6px;cursor:pointer;
+    white-space:nowrap;user-select:none}
+  .noteedit input[type=text]{flex:1;margin:0}
+  .noteedit .notehint{color:var(--accent2);font-size:11px;min-width:34px}
   .tr.hit.sel{background:var(--rowsel)}
   .tr.hit.cur{outline:1px solid #fbbf24;outline-offset:-1px}
   .findbar{display:flex;align-items:center;gap:6px;margin:-2px 0 8px}
@@ -187,6 +231,7 @@
     <span class="count" id="count"></span>
     <span class="spacer"></span>
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
+    <button class="btn" id="filtBtn" title="Show per-column filter row">Filters ▾</button>
     <button class="btn" id="colsBtn">Columns ▾</button>
     <button class="btn" id="expBtn">Export ▾</button>
   </header>
@@ -272,6 +317,7 @@
     <div class="tablewrap">
       <div class="scroll" id="scroll">
         <div class="thead" id="thead"></div>
+        <div class="cfrow off" id="cfrow"></div>
         <div class="vport" id="vport"></div>
         <div class="loading hidden" id="loading">Loading…</div>
         <div class="empty-state" id="emptyState" style="display:none">
@@ -296,7 +342,20 @@
       <div class="mtitle">Share</div>
       <div class="mi" id="copyLink">Copy link to this view</div>
       <div class="mi" id="copyRows">Copy selected rows</div>
+      <div class="mtitle">Sidecar</div>
+      <label class="mi" id="sidecarRow" style="display:flex;align-items:center;gap:7px"
+             title="Write a small .gama.json next to CSV/TSV/HTML recording the filters, version and source. Not written for ASC.">
+        <input type="checkbox" id="sidecarChk"> include provenance .json
+      </label>
     </div>
+  </div>
+</div>
+
+<div class="pal-wrap" id="palMask">
+  <div class="pal">
+    <input type="text" id="palInput" placeholder="Type a command or preset…" spellcheck="false">
+    <div class="pal-list" id="palList"></div>
+    <div class="pal-foot"><span>&#8593;&#8595; move &middot; &#8629; run &middot; esc close</span></div>
   </div>
 </div>
 
@@ -324,10 +383,11 @@
     <header><h2>About Gama &mdash; EyeLink EDF Explorer <span id="verTag"
       style="color:var(--muted);font-weight:400"></span></h2></header>
     <div class="about">
-      <p>Gama opens SR&nbsp;Research EyeLink <code>.EDF</code> recordings and shows them
-      the way SR Research's own <code>edf2asc</code> would convert them &mdash; as event lines
+      <p>gama opens SR&nbsp;Research EyeLink <code>.EDF</code> recordings and shows them
+      the way SR's own <code>edf2asc</code> would convert them &mdash; as event lines
       (fixations, saccades, blinks, messages) &mdash; but in a filterable,
-      spreadsheet-like table. Nothing else is modified</p>
+      spreadsheet-like table. Nothing is modified: the file on disk is only read.
+      Exporting everything with no filters reproduces a byte-identical ASC.</p>
 
       <h3>Files &amp; tabs</h3>
       <p>Each open recording gets a tab. <b>+</b> opens the file browser to add
@@ -415,6 +475,7 @@
 
       <h3>Keyboard</h3>
       <dl>
+        <dt>Ctrl+K</dt><dd>Command palette &mdash; fuzzy-search every action and preset.</dd>
         <dt>Ctrl+F</dt><dd>Jump to the search box.</dd>
         <dt>Ctrl+G</dt><dd>Jump to the "Go to #" box (a line number).</dd>
         <dt>Ctrl+O</dt><dd>Add files.</dd>
@@ -470,21 +531,20 @@
           reach that path (a shared drive, say).</dd>
       </dl>
 
+      <h3>Flagging &amp; notes</h3>
+      <p>Click a row and use the flag checkbox and note field at the top of the
+      detail pane to mark it &mdash; or press <b>F</b> to flag the selected row, or
+      click the small &#9873; in the # column. Flagged rows are tinted and carry the
+      flag marker. Flags and notes are saved to a sidecar file
+      (<code>&lt;name&gt;.EDF.gama-notes.json</code>) right next to the recording,
+      so they travel with the data and reload next time. They're keyed by line
+      number, so they assume the file itself doesn't change. When any row in a file
+      is flagged or noted, CSV/TSV/HTML exports gain <code>flagged</code> and
+      <code>note</code> columns.</p>
+
       <h3>Tabs</h3>
       <p>Double-click a tab to give it a friendlier label than the filename.
       Labels are remembered in this browser and don't affect exports.</p>
-
-      <h3>Credits</h3>
-      <dl>
-        <dt>Creator</dt><dd><a href="http://www.deodori.co" target="_blank" rel="">Caleb (Canaaan) De Odorico</a>
-        of The University of Queensland's School of Psychology</dd>
-        <dt>API</dt><dd>API suppied through python package eyelinkio created by <a href="
-        https://scholar.google.com/citations?user=fSZ3ehAAAAAJ&hl=en" target="_blank" rel"">Scott Huberty<a/>.</dd>
-        <dt>Testing</dt><dd>Thanks to <a href="https://scholar.google.com/citations?user=LFHsQmsAAAAJ&hl=en&oi=ao"
-        target="_blank" rel="">Stefanie</a>, <a href="https://scholar.google.com/citations?hl=en&user=CP3reFMAAAAJ"
-        target="_blank" rel="">Zach<a/>, <a href="" target="_blank" rel="">Chrissy<a/>, <a href="" target="_blank"
-        rel="">Andres<a/>, <a href="" target="_blank" rel=""> Raveen<a/>, etc. of the Becker Lab for testing.</dd>
-      </dl>
     </div>
     <div class="dlgfoot">
       <span class="sel" id="diagLine"></span>
@@ -544,7 +604,7 @@ let HITS=[], hitSet=new Set(), hitAt=-1;   // highlight-mode matches
 let RENAMES={};             // path -> custom tab label
 const F = {groups:new Set(GROUPS), kinds:new Set(KINDS), eye:'', tmin:null,
   tmax:null, durFix:null, durSacc:null, msgInc:'', msgExc:'', msgRe:false,
-  search:'', searchRe:false, searchMode:'filter'};
+  search:'', searchRe:false, searchMode:'filter', colf:{}};
 const $=id=>document.getElementById(id);
 
 const fileById=id=>FILES.find(f=>f.id===id);
@@ -626,7 +686,10 @@ async function loadFile(id){
   loading.style.whiteSpace=''; loading.style.textAlign='';
   loading.style.fontFamily=''; loading.style.padding='';
   if(!cache[id]){
-    const res=await fetch('/api/rows?file='+id);
+    const poll=pollProgress(id, loading);
+    let res;
+    try{ res=await fetch('/api/rows?file='+id); }
+    finally{ clearInterval(poll); }
     if(!res.ok){
       const msg=await res.text();
       loading.style.whiteSpace='pre-wrap'; loading.style.padding='16px';
@@ -640,9 +703,54 @@ async function loadFile(id){
   active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
   selIdx=-1; SEL.clear(); anchorPos=-1; $('details').classList.remove('open');
   $('fname').textContent=META.filename;
+  await loadNotes(id);
   updateCounts(); updatePlaceholders(); markTabs();
   loading.classList.add('hidden');
   apply();
+}
+
+// ---- row flags & notes (persisted to a sidecar next to the .EDF) ----
+let NOTES={};   // line index (string) -> {flag, note}, for the active file
+async function loadNotes(id){
+  NOTES={};
+  try{ const r=await fetch('/api/notes?file='+id); NOTES=(await r.json()).notes||{}; }
+  catch(e){ NOTES={}; }
+}
+function noteFor(idx){ return NOTES[String(idx)]; }
+function noteCount(){ return Object.keys(NOTES).length; }
+async function setNote(idx, flag, note){
+  const key=String(idx);
+  if(flag||((note||'').trim())) NOTES[key]={flag:!!flag, note:(note||'').trim()};
+  else delete NOTES[key];
+  try{
+    const r=await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({file:active, line:idx, flag:!!flag, note:note||''})});
+    NOTES=(await r.json()).notes||NOTES;
+  }catch(e){ toast('Could not save note (file may be read-only)'); }
+  render(); updateCounts();
+}
+function toggleFlag(idx){
+  const n=noteFor(idx);
+  setNote(idx, !(n&&n.flag), n?n.note:'');
+}
+
+// While /api/rows blocks on a first parse, poll /api/progress so the overlay
+// shows a live item count (edfapi exposes no total, so this is a count, not a %).
+function pollProgress(id, loading){
+  const t0=Date.now();
+  return setInterval(async()=>{
+    try{
+      const r=await fetch('/api/progress?file='+id);
+      const p=await r.json();
+      if(p.state==='parsing' || p.state==='queued'){
+        const secs=((Date.now()-t0)/1000).toFixed(0);
+        const n=(p.seen||0).toLocaleString();
+        loading.textContent = p.seen
+          ? `Reading ${fileById(id)?.name||''} — ${n} events (${secs}s)…`
+          : `Opening ${fileById(id)?.name||''}…`;
+      }
+    }catch(e){ /* ignore transient poll errors */ }
+  }, 250);
 }
 
 // ---- in-app file browser ----
@@ -788,6 +896,8 @@ function renameTab(f){
 const typing=e=>/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
 document.addEventListener('keydown',e=>{
   const mod=e.ctrlKey||e.metaKey;
+  if(mod && e.key.toLowerCase()==='k'){ e.preventDefault();
+    $('palMask').classList.contains('open') ? closePalette() : openPalette(); return; }
   if(mod && e.key.toLowerCase()==='f'){ e.preventDefault(); $('search').focus(); $('search').select(); return; }
   if(mod && e.key.toLowerCase()==='o'){ e.preventDefault(); openBrowser(); return; }
   if(mod && e.key.toLowerCase()==='g'){ e.preventDefault(); $('goto').focus(); $('goto').select(); return; }
@@ -799,6 +909,11 @@ document.addEventListener('keydown',e=>{
   if(e.altKey && /^[1-9]$/.test(e.key)){ e.preventDefault();
     const f=FILES[+e.key-1]; if(f) loadFile(f.id); return; }
   if(e.key==='?' && !typing(e)){ e.preventDefault(); $('aboutMask').classList.add('open'); return; }
+  if((e.key==='f'||e.key==='F') && !mod && !typing(e) && selIdx>=0){
+    e.preventDefault(); toggleFlag(selIdx);
+    if($('flagChk')){ const n=noteFor(selIdx); $('flagChk').checked=!!(n&&n.flag); }
+    return;
+  }
   if(e.key==='F3'){ e.preventDefault(); gotoHit(e.shiftKey?-1:1); return; }
   if(typing(e)) return;
   if(e.key==='ArrowDown'){ e.preventDefault(); moveSel(1,e.shiftKey); }
@@ -847,7 +962,8 @@ $('aboutClose').onclick=()=>$('aboutMask').classList.remove('open');
 $('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classList.remove('open'); };
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if($('aboutMask').classList.contains('open')) $('aboutMask').classList.remove('open');
+  if($('palMask').classList.contains('open')) closePalette();
+  else if($('aboutMask').classList.contains('open')) $('aboutMask').classList.remove('open');
   else if($('mask').classList.contains('open')){ fbPicked.clear(); closeBrowser(); }
 });
 $('fbOpen').onclick=async()=>{
@@ -905,7 +1021,44 @@ function buildHead(){
     d.onclick=()=>{ sortDir = (sortCol===i)? -sortDir : 1; sortCol=i; apply(); };
     el.appendChild(d);
   });
+  syncFilterRow();          // keep widths/columns in step; never wipe live inputs
 }
+// The signature of the currently-built filter row: which columns, in what order,
+// at what width. Rebuild the inputs only when this changes, so typing doesn't
+// recreate (and unfocus) the box under the cursor on every keystroke.
+let _cfSig=null;
+function filterRowSig(){
+  return COLS.filter(c=>!c.hidden).map(c=>c.k+':'+c.w).join('|');
+}
+function syncFilterRow(){
+  if(filterRowSig()!==_cfSig) buildFilterRow();
+}
+function buildFilterRow(){
+  const el=$('cfrow'); el.innerHTML='';
+  COLS.forEach(c=>{
+    if(c.hidden) return;
+    const cell=document.createElement('div'); cell.className='cf';
+    cell.style.width=c.w+'px';
+    const inp=document.createElement('input');
+    inp.dataset.k=c.k;
+    inp.value=(F.colf&&F.colf[c.k])||'';
+    inp.placeholder=c.num?'>10  1..5':'text  /re/';
+    inp.title=c.num
+      ? 'Numeric: >10  >=10  <5  <=5  =3  10..40  (bare 10 means \u2265 10)'
+      : 'Text: substring, or /regex/';
+    inp.classList.toggle('bad', parseColExpr(inp.value, !!c.num)===false);
+    inp.oninput=()=>{
+      F.colf[c.k]=inp.value;
+      inp.classList.toggle('bad', parseColExpr(inp.value, !!c.num)===false);
+      cfApply();                     // debounced; does NOT rebuild the row
+    };
+    cell.appendChild(inp); el.appendChild(cell);
+  });
+  _cfSig=filterRowSig();
+}
+// A single shared debounce for column-filter typing.
+let _cfTimer=null;
+function cfApply(){ clearTimeout(_cfTimer); _cfTimer=setTimeout(apply,160); }
 function buildColMenu(){
   const m=$('colmenu'); m.innerHTML='';
   COLS.forEach((c,i)=>{
@@ -922,8 +1075,61 @@ function makeMatcher(str, isRe){
   const q=str.toLowerCase(); return s=>s.toLowerCase().includes(q);
 }
 
+// Per-column filters. F.colf maps column key -> raw expression string.
+// Numeric columns understand  >10  >=10  <5  <=5  =3  10..40  (and bare "10"
+// meaning ">= that / contains"). Text columns do a case-insensitive substring,
+// or a /regex/. A blank cell in the data never matches a numeric filter.
+function parseColExpr(expr, numeric){
+  expr = (expr||'').trim();
+  if(!expr) return null;
+  if(numeric){
+    let m;
+    if((m=expr.match(/^(-?\d*\.?\d+)\s*\.\.\s*(-?\d*\.?\d+)$/))){
+      const a=+m[1], b=+m[2]; return v=>v>=Math.min(a,b)&&v<=Math.max(a,b);
+    }
+    if((m=expr.match(/^(>=|<=|>|<|=)\s*(-?\d*\.?\d+)$/))){
+      const n=+m[2];
+      return {'>':v=>v>n,'<':v=>v<n,'>=':v=>v>=n,'<=':v=>v<=n,'=':v=>v===n}[m[1]];
+    }
+    if((m=expr.match(/^(-?\d*\.?\d+)$/))) { const n=+m[1]; return v=>v>=n; }
+    return false; // unparseable -> flag as bad
+  }
+  if(expr.length>1 && expr[0]==='/' && expr[expr.length-1]==='/'){
+    try{ const re=new RegExp(expr.slice(1,-1),'i'); return s=>re.test(s); }
+    catch(e){ return false; }
+  }
+  const q=expr.toLowerCase(); return s=>(''+s).toLowerCase().includes(q);
+}
+function buildColFilters(){
+  COLF={};
+  for(const c of COLS){
+    const raw=(F.colf&&F.colf[c.k])||'';
+    if(!raw){ COLF[c.k]=null; continue; }
+    const fn=parseColExpr(raw, !!c.num);
+    COLF[c.k]=fn; // false means invalid -> matches nothing, and cell shows red
+  }
+}
+function rowPassesCols(r){
+  for(const c of COLS){
+    const fn=COLF[c.k];
+    if(fn==null) continue;
+    let v=c.get(r);
+    if(c.num){
+      v=parseFloat(v);
+      if(isNaN(v)) return false;           // blank numeric never matches
+    } else {
+      v=(v===undefined||v===null)?'':v;
+    }
+    if(fn===false || !fn(v)) return false;  // invalid expr matches nothing
+  }
+  return true;
+}
+let COLF={};
+
 function apply(){
   if(!META) return;
+  buildColFilters();
+  const anyCol=COLS.some(c=>COLF[c.k]!=null);
   const incM=makeMatcher(F.msgInc,F.msgRe), excM=makeMatcher(F.msgExc,F.msgRe);
   const srch=makeMatcher(F.search,F.searchRe);
   let tlo=F.tmin, thi=F.tmax;
@@ -946,6 +1152,7 @@ function apply(){
       if(incM && !incM(body)) continue;
       if(excM && excM(body)) continue;
     }
+    if(anyCol && !rowPassesCols(r)) continue;
     if(srch && F.searchMode==='filter' && !srch(r[C.raw])) continue;
     view.push(r);
   }
@@ -996,6 +1203,9 @@ function layout(){
   vport.style.height=(view.length*ROWH)+'px';
   vport.style.width=rowWidth()+'px';
   $('thead').style.width=rowWidth()+'px';
+  $('cfrow').style.width=rowWidth()+'px';
+  const hh=$('thead').offsetHeight;
+  if(hh) document.documentElement.style.setProperty('--headh', hh+'px');
 }
 function render(){
   const top=scroll.scrollTop, h=scroll.clientHeight;
@@ -1008,6 +1218,8 @@ function render(){
     if(SEL.has(r[C.idx])) cls.push('sel');
     if(hitSet.has(r[C.idx])) cls.push('hit');
     if(hitAt>=0 && HITS[hitAt]===i) cls.push('cur');
+    const nv=noteFor(r[C.idx]);
+    if(nv&&nv.flag) cls.push('flagged');
     html+=`<div class="${cls.join(' ')}" style="top:${i*ROWH}px;width:${rowWidth()}px" data-i="${r[C.idx]}" data-p="${i}">`;
     for(const c of COLS){
       if(c.hidden) continue;
@@ -1015,6 +1227,9 @@ function render(){
       if(c.badge){
         const col=GROUP_COLOR[r[C.grp]]||'#888';
         html+=`<div class="td" style="width:${c.w}px"><span class="badge" style="background:${col}">${v}</span></div>`;
+      } else if(c.k==='idx'){
+        const mark=nv?`<span class="flagmark${nv.flag?' on':''}" data-flag="${r[C.idx]}" title="${nv.note?escapeHtml(nv.note):'flagged'}">\u2691</span>`:'';
+        html+=`<div class="td idxcell" style="width:${c.w}px">${mark}<span>${escapeHtml(''+v)}</span></div>`;
       } else {
         const cls='td'+(c.msg?' msg':'');
         html+=`<div class="${cls}" style="width:${c.w}px">${escapeHtml(''+v)}</div>`;
@@ -1030,6 +1245,8 @@ scroll.addEventListener('scroll',render);
 window.addEventListener('resize',render);
 
 vport.addEventListener('click',e=>{
+  const fm=e.target.closest('.flagmark');
+  if(fm){ e.stopPropagation(); toggleFlag(parseInt(fm.dataset.flag,10)); return; }
   const tr=e.target.closest('.tr'); if(!tr) return;
   const idx=parseInt(tr.dataset.i,10), pos=parseInt(tr.dataset.p,10);
   selectRow(idx,pos,e.shiftKey,e.ctrlKey||e.metaKey);
@@ -1113,8 +1330,24 @@ function showDetails(idx){
     t+=`<tr><td class="k">${k}</td><td>${escapeHtml(''+v)}</td></tr>`; }
   t+='</table>';
   const raw=r[C.raw].replace(/\t/g,'\u2192').replace(/\n/g,'\u21b5\n');
-  det.innerHTML=t+`<div class="raw">${escapeHtml(raw)}</div>`;
+  const nv=noteFor(idx)||{flag:false,note:''};
+  const noteBox=
+    `<div class="noteedit">`+
+    `<label class="flagtog"><input type="checkbox" id="flagChk" ${nv.flag?'checked':''}> `+
+    `<span>\u2691 Flag line ${idx}</span></label>`+
+    `<input type="text" id="noteInp" placeholder="note (saved next to the .EDF)" `+
+    `value="${escapeHtml(nv.note)}">`+
+    `<span class="notehint" id="noteHint"></span></div>`;
+  det.innerHTML=noteBox+t+`<div class="raw">${escapeHtml(raw)}</div>`;
   det.classList.add('open');
+  const chk=$('flagChk'), inp=$('noteInp');
+  chk.onchange=()=>{ setNote(idx, chk.checked, inp.value);
+    $('noteHint').textContent='saved'; setTimeout(()=>{const h=$('noteHint');if(h)h.textContent='';},900); };
+  const save=deb(()=>{ setNote(idx, chk.checked, inp.value);
+    const h=$('noteHint'); if(h){h.textContent='saved'; setTimeout(()=>{if($('noteHint'))$('noteHint').textContent='';},900);} },400);
+  inp.addEventListener('input',save);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur();
+    setNote(idx, chk.checked, inp.value); } });
 }
 
 function deb(fn,ms){let h;return(...a)=>{clearTimeout(h);h=setTimeout(()=>fn(...a),ms);};}
@@ -1149,7 +1382,8 @@ document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
     F.kinds=new Set(KINDS); document.querySelectorAll('#kinds input').forEach(c=>c.checked=true);
     F.msgInc=F.msgExc=F.search=''; $('msgInc').value=$('msgExc').value=$('search').value='';
     F.eye='';$('eyeSel').value=''; F.tmin=F.tmax=null; F.durFix=F.durSacc=null;
-    $('tmin').value=$('tmax').value=$('durFix').value=$('durSacc').value=''; }
+    $('tmin').value=$('tmax').value=$('durFix').value=$('durSacc').value='';
+    F.colf={}; buildFilterRow(); }
   if(p==='events') setGroups(['FIX','SACC','BLINK']);
   if(p==='messages') setGroups(['MSG']);
   if(p==='clean') setGroups(['HEADER','END','INPUT','MSG','FIX','SACC','BLINK']);
@@ -1162,6 +1396,7 @@ function currentConfig(){
     tmin:F.tmin, tmax:F.tmax, durFix:F.durFix, durSacc:F.durSacc,
     msgInc:F.msgInc, msgExc:F.msgExc, msgRe:F.msgRe,
     search:F.search, searchRe:F.searchRe, searchMode:F.searchMode, rel:REL,
+    colf:{...F.colf},
     cols:COLS.filter(c=>!c.hidden).map(c=>c.k)};
 }
 function applyConfig(cfg){
@@ -1179,14 +1414,18 @@ function applyConfig(cfg){
   F.msgRe=!!cfg.msgRe; F.searchRe=!!cfg.searchRe;
   $('msgRe').checked=F.msgRe; $('searchRe').checked=F.searchRe;
   F.searchMode=cfg.searchMode||'filter'; $('searchMode').value=F.searchMode;
+  F.colf=Object.assign({}, cfg.colf||{}); buildFilterRow();
+  if(cfg.colf && Object.values(cfg.colf).some(v=>v)) $('cfrow').classList.remove('off');
   REL=!!cfg.rel; $('tsMode').value=REL?'rel':'abs';
   if(cfg.cols){ COLS.forEach(c=>c.hidden=!cfg.cols.includes(c.k));
     buildColMenu(); }
   if(META) updatePlaceholders();
   apply();
 }
+let PRESETS={};
 async function refreshPresets(){
   const res=await fetch('/api/presets'); const data=await res.json();
+  PRESETS=data;
   const el=$('savedPresets'); el.innerHTML='';
   const names=Object.keys(data);
   if(!names.length){ el.innerHTML='<div class="empty">none saved yet</div>'; return; }
@@ -1207,10 +1446,139 @@ $('savePreset').onclick=async()=>{
   refreshPresets();
 };
 
-// ---- menus ----
-function closeMenus(except){ ['colmenu','expmenu'].forEach(id=>{ if(id!==except) $(id).classList.remove('open'); }); }
+// ---- command palette (Ctrl+K) ----
+// Actions reuse the same functions the buttons call. `on` guards items that
+// only make sense when a file is loaded.
+function paletteActions(){
+  const haveFile = active>=0 && !!META;
+  const A=[];
+  const add=(name,cat,run,opts={})=>A.push({name,cat,run,key:opts.key,
+    enabled:opts.always?true:(opts.needFile===false?true:haveFile)});
+  // files
+  add('Add EDF files…','File',()=>openBrowser(),{always:true,key:'Ctrl+O'});
+  if(haveFile) add('Close current file','File',()=>closeFile(active),{key:'Alt+W'});
+  FILES.forEach((f,i)=>add('Switch to: '+(RENAMES[f.path]||f.name),'Tab',
+    ()=>loadFile(f.id),{always:true,key:i<9?('Alt+'+(i+1)):undefined}));
+  // export
+  ['asc','csv','tsv','html'].forEach(fmt=>
+    add('Export this file as '+fmt.toUpperCase(),'Export',()=>exportOne(fmt)));
+  ['asc','csv','tsv','html'].forEach(fmt=>
+    add('Export all files as '+fmt.toUpperCase()+' (ZIP)','Export',()=>exportAll(fmt)));
+  add('Copy link to this view','Export',()=>copyViewLink());
+  add('Copy selected rows','Export',()=>copySelection());
+  // filters / presets
+  add('Focus search','Filter',()=>{$('search').focus();$('search').select();},{always:true,key:'Ctrl+F'});
+  add('Toggle per-column filters','Filter',()=>$('filtBtn').click(),{always:true});
+  add('Reset all filters (show everything)','Filter',
+    ()=>document.querySelector('[data-preset="reset"]').click());
+  add('Preset: Events only','Filter',()=>document.querySelector('[data-preset="events"]').click());
+  add('Preset: Messages only','Filter',()=>document.querySelector('[data-preset="messages"]').click());
+  add('Preset: Hide setup','Filter',()=>document.querySelector('[data-preset="clean"]').click());
+  add('Save current filters as preset…','Filter',()=>$('savePreset').click(),{always:true});
+  Object.keys(PRESETS||{}).forEach(n=>
+    add('Load preset: '+n,'Preset',()=>applyConfig(PRESETS[n]),{always:true}));
+  // navigation / view
+  if(haveFile){
+    add('Go to line…','View',()=>{$('goto').focus();$('goto').select();},{key:'Ctrl+G'});
+    add('Flag / unflag selected row','Row',()=>{ if(selIdx>=0) toggleFlag(selIdx); },{key:'F'});
+  }
+  add('Timestamps: absolute','View',()=>{$('tsMode').value='abs';$('tsMode').dispatchEvent(new Event('change'));},{always:true});
+  add('Timestamps: relative to file start','View',()=>{$('tsMode').value='rel';$('tsMode').dispatchEvent(new Event('change'));},{always:true});
+  add('Theme: dark','View',()=>setTheme('dark'),{always:true});
+  add('Theme: light','View',()=>setTheme('light'),{always:true});
+  add('Text size: small','View',()=>setFont('s'),{always:true});
+  add('Text size: medium','View',()=>setFont('m'),{always:true});
+  add('Text size: large','View',()=>setFont('l'),{always:true});
+  add('Columns menu','View',()=>$('colsBtn').click(),{always:true});
+  // help
+  add('About / Help','Help',()=>{loadInfo();$('aboutMask').classList.add('open');},{always:true,key:'?'});
+  add('Copy diagnostics','Help',()=>$('copyDiag').click(),{always:true});
+  return A.filter(a=>a.enabled);
+}
+
+// subsequence fuzzy match; returns {score, marks} or null
+function fuzzy(q, text){
+  if(!q) return {score:0, idx:[]};
+  const t=text.toLowerCase(); q=q.toLowerCase();
+  let ti=0, idx=[], gaps=0, last=-1;
+  for(const ch of q){
+    const at=t.indexOf(ch, ti);
+    if(at<0) return null;
+    if(last>=0 && at>last+1) gaps++;
+    idx.push(at); last=at; ti=at+1;
+  }
+  // lower is better: prefer early first hit and few gaps
+  const score = idx[0]*2 + gaps*3 + (text.length*0.01);
+  return {score, idx};
+}
+function palMark(name, idx){
+  if(!idx || !idx.length) return escapeHtml(name);
+  let out='', set=new Set(idx);
+  for(let i=0;i<name.length;i++){
+    const c=escapeHtml(name[i]);
+    out += set.has(i) ? `<mark>${c}</mark>` : c;
+  }
+  return out;
+}
+
+let palItems=[], palSel=0;
+function openPalette(){
+  $('palInput').value=''; palSel=0;
+  $('palMask').classList.add('open');
+  renderPalette('');
+  setTimeout(()=>$('palInput').focus(),0);
+}
+function closePalette(){ $('palMask').classList.remove('open'); }
+function renderPalette(q){
+  const acts=paletteActions();
+  let scored;
+  if(!q){ scored=acts.map(a=>({a,idx:[]})); }
+  else{
+    scored=[];
+    for(const a of acts){
+      const m=fuzzy(q, a.name) || fuzzy(q, a.cat+' '+a.name);
+      if(m) scored.push({a, idx:m.idx, score:m.score});
+    }
+    scored.sort((x,y)=>x.score-y.score);
+  }
+  palItems=scored;
+  if(palSel>=palItems.length) palSel=Math.max(0,palItems.length-1);
+  const list=$('palList');
+  if(!palItems.length){ list.innerHTML='<div class="pal-empty">No matching command</div>'; return; }
+  list.innerHTML=palItems.map((it,i)=>{
+    const a=it.a;
+    return `<div class="pal-item${i===palSel?' on':''}" data-i="${i}">`+
+      `<span class="pi-cat">${escapeHtml(a.cat)}</span>`+
+      `<span class="pi-name">${palMark(a.name, it.idx)}</span>`+
+      (a.key?`<span class="pi-key">${escapeHtml(a.key)}</span>`:'')+`</div>`;
+  }).join('');
+  const on=list.querySelector('.pal-item.on'); if(on && on.scrollIntoView) on.scrollIntoView({block:'nearest'});
+}
+function runPalette(i){
+  const it=palItems[i]; if(!it) return;
+  closePalette();
+  try{ it.a.run(); }catch(e){ console.error('palette action failed',e); }
+}
+$('palInput').addEventListener('input',e=>{ palSel=0; renderPalette(e.target.value.trim()); });
+$('palInput').addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){ e.preventDefault(); palSel=Math.min(palItems.length-1,palSel+1); renderPalette($('palInput').value.trim()); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); palSel=Math.max(0,palSel-1); renderPalette($('palInput').value.trim()); }
+  else if(e.key==='Enter'){ e.preventDefault(); runPalette(palSel); }
+  else if(e.key==='Escape'){ e.preventDefault(); closePalette(); }
+});
+$('palList').addEventListener('click',e=>{
+  const it=e.target.closest('.pal-item'); if(it) runPalette(+it.dataset.i);
+});
+$('palMask').addEventListener('click',e=>{ if(e.target===$('palMask')) closePalette(); });
+
+
 $('colsBtn').onclick=(e)=>{ e.stopPropagation(); closeMenus('colmenu'); $('colmenu').classList.toggle('open'); };
 $('expBtn').onclick=(e)=>{ e.stopPropagation(); closeMenus('expmenu'); $('expmenu').classList.toggle('open'); };
+$('filtBtn').onclick=()=>{
+  const on = !$('cfrow').classList.toggle('off');
+  $('filtBtn').classList.toggle('primary', on);
+  if(on){ const first=$('cfrow').querySelector('input'); if(first) first.focus(); }
+};
 document.addEventListener('click',e=>{
   if(!e.target.closest('#colmenu')&&!e.target.closest('#colsBtn')) $('colmenu').classList.remove('open');
   if(!e.target.closest('#expmenu')&&!e.target.closest('#expBtn')) $('expmenu').classList.remove('open');
@@ -1238,13 +1606,18 @@ async function post(url, body){
 }
 async function exportOne(fmt){
   const indices=view.map(r=>r[C.idx]);
-  download(await post('/api/export',{file:active,indices,format:fmt,relative:REL}),
-    'export.'+fmt);
+  const sidecar=$('sidecarChk').checked && fmt!=='asc';
+  download(await post('/api/export',
+    {file:active,indices,format:fmt,relative:REL,sidecar,opts:currentOpts()}),
+    sidecar?(fname()+'_filtered.zip'):('export.'+fmt));
 }
 async function exportAll(fmt){
-  download(await post('/api/export_all',{opts:currentOpts(),format:fmt,relative:REL}),
+  const sidecar=$('sidecarChk').checked && fmt!=='asc';
+  download(await post('/api/export_all',
+    {opts:currentOpts(),format:fmt,relative:REL,sidecar}),
     'edf_export_'+fmt+'.zip');
 }
+function fname(){ const f=fileById(active); return f?f.base||f.name.replace(/\.[^.]+$/,''):'export'; }
 $('expmenu').querySelectorAll('.mi').forEach(mi=>{
   if(!mi.dataset.fmt) return;
   mi.onclick=()=>{
@@ -1253,6 +1626,9 @@ $('expmenu').querySelectorAll('.mi').forEach(mi=>{
     $('expmenu').classList.remove('open');
   };
 });
+// the sidecar checkbox is a setting, not an action: clicking it must not run an
+// export or close the menu
+$('sidecarRow').onclick=e=>e.stopPropagation();
 $('copyLink').onclick=()=>{ copyViewLink(); $('expmenu').classList.remove('open'); };
 $('copyRows').onclick=()=>{ copySelection(); $('expmenu').classList.remove('open'); };
 
