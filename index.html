@@ -172,6 +172,15 @@
   .tr:hover{background:var(--rowhover)}
   .tr.sel{background:var(--rowsel)}
   .tr.hit{box-shadow:inset 3px 0 0 #fbbf24;background:var(--hit)}
+  .tr.sumrow{background:var(--panel2);cursor:pointer;border-bottom:1px solid var(--line)}
+  .tr.sumrow:hover{background:var(--rowhover)}
+  .tr.sumrow .sumcell{display:flex;align-items:center;gap:7px;font-size:12px;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .tr.sumrow .dim{color:var(--muted)}
+  .chev{cursor:pointer;color:var(--muted);font-size:9px;width:11px;display:inline-block;
+    text-align:center;flex:none}
+  .chev:hover{color:var(--txt)}
+  .chev.open{color:var(--accent)}
   .tr.flagged{background:rgba(251,191,36,.10)}
   .tr.flagged.sel{background:var(--rowsel)}
   .idxcell{display:flex;align-items:center;gap:4px}
@@ -231,6 +240,7 @@
     <span class="count" id="count"></span>
     <span class="spacer"></span>
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
+    <button class="btn" id="collapseBtn" title="Collapse each recording block to one summary row">Collapse blocks</button>
     <button class="btn" id="filtBtn" title="Show per-column filter row">Filters ▾</button>
     <button class="btn" id="colsBtn">Columns ▾</button>
     <button class="btn" id="expBtn">Export ▾</button>
@@ -380,7 +390,7 @@
 
 <div class="mask" id="aboutMask">
   <div class="dlg">
-    <header><h2>About Gama &mdash; EyeLink EDF Explorer <span id="verTag"
+    <header><h2>About gama &mdash; EyeLink EDF Explorer <span id="verTag"
       style="color:var(--muted);font-weight:400"></span></h2></header>
     <div class="about">
       <p>gama opens SR&nbsp;Research EyeLink <code>.EDF</code> recordings and shows them
@@ -531,6 +541,16 @@
           reach that path (a shared drive, say).</dd>
       </dl>
 
+      <h3>Collapsing recording blocks</h3>
+      <p>A recording can contain many START&hellip;END blocks (often one per trial).
+      <b>Collapse blocks</b> in the toolbar squeezes each block down to a single
+      summary row &mdash; block number, time span, row count and event breakdown.
+      Click a summary (or press Enter / &rarr; on it) to expand that block; click the
+      &#9660; on a block's first row to re-collapse it. Collapsing is purely visual:
+      it doesn't change what search, copy or export see, and it's automatically
+      suspended while the table is sorted (blocks are only contiguous in the
+      original order).</p>
+
       <h3>Flagging &amp; notes</h3>
       <p>Click a row and use the flag checkbox and note field at the top of the
       detail pane to mark it &mdash; or press <b>F</b> to flag the selected row, or
@@ -560,7 +580,7 @@ const BUF = 12;
 const GROUP_COLOR = {PREAMBLE:'#6b7280',HEADER:'#a78bfa',END:'#f472b6',
   INPUT:'#fbbf24',MSG:'#5b9dff',FIX:'#36c08f',SACC:'#ff8a5b',BLINK:'#e879f9'};
 const C = {idx:0,cat:1,grp:2,mkind:3,start:4,end:5,dur:6,eye:7,x1:8,y1:9,
-  x2:10,y2:11,amp:12,vel:13,pupil:14,resx:15,resy:16,val:17,raw:18};
+  x2:10,y2:11,amp:12,vel:13,pupil:14,resx:15,resy:16,val:17,raw:18,block:19};
 const GROUPS=['PREAMBLE','HEADER','END','INPUT','MSG','FIX','SACC','BLINK'];
 const KINDS=['experiment','config','cal','draw'];
 
@@ -599,8 +619,16 @@ let FILES=[], active=-1, cache={};
 let ROWS=[], META=null, view=[];
 let sortCol=null, sortDir=1, selIdx=-1;
 let SEL=new Set();          // selected row indices (idx values)
-let anchorPos=-1;           // view position for shift-click ranges
+let anchorPos=-1;           // disp position for shift-click ranges
 let HITS=[], hitSet=new Set(), hitAt=-1;   // highlight-mode matches
+// Collapse-by-recording-block: `disp` is the visual projection of `view`.
+// Each disp entry is either a real row (array) or a summary object {sum:true,...}.
+// `view` stays the source of truth for counts, copy, export and search hits.
+let collapseOn=false;       // master toggle
+let expanded=new Set();     // blocks the user manually expanded while collapsed
+let disp=[];                // what the table actually renders/navigates
+let dispPosByIdx=new Map(); // row idx -> disp position (collapsed rows -> their summary)
+let viewPosByIdx=new Map(); // row idx -> view position (for search-hit rendering)
 let RENAMES={};             // path -> custom tab label
 const F = {groups:new Set(GROUPS), kinds:new Set(KINDS), eye:'', tmin:null,
   tmax:null, durFix:null, durSacc:null, msgInc:'', msgExc:'', msgRe:false,
@@ -701,7 +729,7 @@ async function loadFile(id){
     cache[id]=await res.json();
   }
   active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
-  selIdx=-1; SEL.clear(); anchorPos=-1; $('details').classList.remove('open');
+  selIdx=-1; SEL.clear(); anchorPos=-1; expanded.clear(); $('details').classList.remove('open');
   $('fname').textContent=META.filename;
   await loadNotes(id);
   updateCounts(); updatePlaceholders(); markTabs();
@@ -828,6 +856,11 @@ $('themeSel').onchange=e=>setTheme(e.target.value);
 $('fontSel').onchange=e=>setFont(e.target.value);
 
 // ---- go to line ----
+function ensureVisibleBlock(row){
+  if(collapseOn && sortCol===null && row[C.block]>=0 && !expanded.has(row[C.block])){
+    expanded.add(row[C.block]); rebuildDisp(); layout();
+  }
+}
 function gotoLine(n){
   if(!view.length) return;
   let pos=view.findIndex(r=>r[C.idx]===n);
@@ -837,8 +870,10 @@ function gotoLine(n){
     toast(`Line ${n} isn't in the current view — jumped to the nearest one`);
   }
   const r=view[pos];
-  selectRow(r[C.idx],pos,false,false);
-  scrollToPos(pos);
+  ensureVisibleBlock(r);
+  const dpos=dispPosByIdx.get(r[C.idx]);
+  selectRow(r[C.idx],dpos,false,false);
+  scrollToPos(dpos);
 }
 $('goto').addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;
@@ -916,12 +951,14 @@ document.addEventListener('keydown',e=>{
   }
   if(e.key==='F3'){ e.preventDefault(); gotoHit(e.shiftKey?-1:1); return; }
   if(typing(e)) return;
+  if((e.key==='Enter'||e.key==='ArrowRight') && anchorPos>=0 && disp[anchorPos] && disp[anchorPos].sum){
+    e.preventDefault(); expandBlock(disp[anchorPos].block); return; }
   if(e.key==='ArrowDown'){ e.preventDefault(); moveSel(1,e.shiftKey); }
   else if(e.key==='ArrowUp'){ e.preventDefault(); moveSel(-1,e.shiftKey); }
   else if(e.key==='PageDown'){ e.preventDefault(); moveSel(Math.floor(scroll.clientHeight/ROWH),e.shiftKey); }
   else if(e.key==='PageUp'){ e.preventDefault(); moveSel(-Math.floor(scroll.clientHeight/ROWH),e.shiftKey); }
   else if(e.key==='Home'){ e.preventDefault(); anchorPos=0; moveSel(0,false); scroll.scrollTop=0; }
-  else if(e.key==='End'){ e.preventDefault(); anchorPos=view.length-1; moveSel(0,false);
+  else if(e.key==='End'){ e.preventDefault(); anchorPos=disp.length-1; moveSel(0,false);
     scroll.scrollTop=scroll.scrollHeight; }
 });
 
@@ -1167,6 +1204,8 @@ function apply(){
     });
   }
   // highlight mode: rows stay in place, matches are marked instead
+  viewPosByIdx=new Map();
+  for(let p=0;p<view.length;p++) viewPosByIdx.set(view[p][C.idx], p);
   HITS=[]; hitSet=new Set();
   if(srch && F.searchMode==='highlight'){
     view.forEach((r,pos)=>{ if(srch(r[C.raw])){ HITS.push(pos); hitSet.add(r[C.idx]); } });
@@ -1176,7 +1215,7 @@ function apply(){
   $('count').textContent =
     `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines` +
     (SEL.size ? `  ·  ${SEL.size.toLocaleString()} selected` : '');
-  buildHead(); layout(); render();
+  buildHead(); rebuildDisp(); layout(); render();
 }
 
 function updateFindbar(){
@@ -1189,7 +1228,10 @@ function updateFindbar(){
 function gotoHit(step){
   if(!HITS.length) return;
   hitAt=(hitAt+step+HITS.length)%HITS.length;
-  scrollToPos(HITS[hitAt]);
+  const row=view[HITS[hitAt]];
+  ensureVisibleBlock(row);
+  const dpos=dispPosByIdx.get(row[C.idx]);
+  if(dpos!=null) scrollToPos(dpos);
   updateFindbar(); render();
 }
 function scrollToPos(pos){
@@ -1198,9 +1240,56 @@ function scrollToPos(pos){
 }
 
 const vport=$('vport'), scroll=$('scroll');
+
+// Build the display projection from `view`. Collapse only applies in natural
+// order (unsorted); when sorted, blocks aren't contiguous so we show all rows.
+function rebuildDisp(){
+  dispPosByIdx=new Map();
+  const active = collapseOn && sortCol===null;
+  if(!active){
+    disp=view;
+    for(let i=0;i<view.length;i++) dispPosByIdx.set(view[i][C.idx], i);
+    return;
+  }
+  disp=[];
+  let i=0;
+  while(i<view.length){
+    const r=view[i], blk=r[C.block];
+    if(blk<0 || expanded.has(blk)){
+      dispPosByIdx.set(r[C.idx], disp.length);
+      disp.push(r); i++; continue;
+    }
+    // gather the contiguous run of rows in this block
+    let j=i, tmin=null, tmax=null, counts={}, members=[];
+    while(j<view.length && view[j][C.block]===blk){
+      const rr=view[j];
+      const s=rr[C.start], e=rr[C.end];
+      if(typeof s==='number'){ tmin=(tmin===null)?s:Math.min(tmin,s); }
+      const t2=(typeof e==='number')?e:s;
+      if(typeof t2==='number'){ tmax=(tmax===null)?t2:Math.max(tmax,t2); }
+      counts[rr[C.grp]]=(counts[rr[C.grp]]||0)+1;
+      members.push(rr[C.idx]);
+      j++;
+    }
+    const pos=disp.length;
+    for(const id of members) dispPosByIdx.set(id, pos);  // collapsed -> summary
+    disp.push({sum:true, block:blk, count:j-i, tmin, tmax, counts, members});
+    i=j;
+  }
+}
+function toggleCollapseAll(on){
+  collapseOn = (on===undefined)? !collapseOn : on;
+  expanded.clear();
+  $('collapseBtn').classList.toggle('primary', collapseOn);
+  $('collapseBtn').textContent = collapseOn ? 'Blocks: collapsed' : 'Collapse blocks';
+  rebuildDisp(); layout(); render();
+}
+function expandBlock(blk){ expanded.add(blk); rebuildDisp(); layout(); render(); }
+function collapseBlock(blk){ expanded.delete(blk); rebuildDisp(); layout(); render(); }
+
 function rowWidth(){ return COLS.reduce((s,c)=>s+(c.hidden?0:c.w),0); }
 function layout(){
-  vport.style.height=(view.length*ROWH)+'px';
+  vport.style.height=(disp.length*ROWH)+'px';
   vport.style.width=rowWidth()+'px';
   $('thead').style.width=rowWidth()+'px';
   $('cfrow').style.width=rowWidth()+'px';
@@ -1210,17 +1299,34 @@ function layout(){
 function render(){
   const top=scroll.scrollTop, h=scroll.clientHeight;
   let first=Math.max(0,Math.floor(top/ROWH)-BUF);
-  let last=Math.min(view.length,Math.ceil((top+h)/ROWH)+BUF);
+  let last=Math.min(disp.length,Math.ceil((top+h)/ROWH)+BUF);
   let html='';
+  const W=rowWidth();
   for(let i=first;i<last;i++){
-    const r=view[i];
+    const e=disp[i];
+    if(e && e.sum){                       // collapsed-block summary row
+      const parts=['FIX','SACC','BLINK','MSG','INPUT'].filter(g=>e.counts[g])
+        .map(g=>`${e.counts[g]} ${g.toLowerCase()}`).join(', ');
+      const tr=(e.tmin!=null)?`${tdisp(e.tmin)}–${tdisp(e.tmax)}`:'';
+      html+=`<div class="tr sumrow" style="top:${i*ROWH}px;width:${W}px" data-p="${i}" data-block="${e.block}">`+
+        `<div class="td sumcell" style="width:${W}px">`+
+        `<span class="chev">\u25B6</span>`+
+        `<b>Block ${e.block}</b> <span class="dim">${tr}</span> `+
+        `<span class="dim">· ${e.count.toLocaleString()} rows</span>`+
+        (parts?` <span class="dim">· ${parts}</span>`:'')+
+        `</div></div>`;
+      continue;
+    }
+    const r=e;
     const cls=['tr'];
     if(SEL.has(r[C.idx])) cls.push('sel');
     if(hitSet.has(r[C.idx])) cls.push('hit');
-    if(hitAt>=0 && HITS[hitAt]===i) cls.push('cur');
+    if(hitAt>=0 && HITS[hitAt]===viewPosByIdx.get(r[C.idx])) cls.push('cur');
     const nv=noteFor(r[C.idx]);
     if(nv&&nv.flag) cls.push('flagged');
-    html+=`<div class="${cls.join(' ')}" style="top:${i*ROWH}px;width:${rowWidth()}px" data-i="${r[C.idx]}" data-p="${i}">`;
+    const isBlockStart = collapseOn && sortCol===null && r[C.block]>=0 &&
+      (i===0 || !isSameBlockStart(disp[i-1], r[C.block]));
+    html+=`<div class="${cls.join(' ')}" style="top:${i*ROWH}px;width:${W}px" data-i="${r[C.idx]}" data-p="${i}">`;
     for(const c of COLS){
       if(c.hidden) continue;
       let v=c.get(r); if(v===''||v===undefined||v===null) v='';
@@ -1228,8 +1334,9 @@ function render(){
         const col=GROUP_COLOR[r[C.grp]]||'#888';
         html+=`<div class="td" style="width:${c.w}px"><span class="badge" style="background:${col}">${v}</span></div>`;
       } else if(c.k==='idx'){
+        const chev=isBlockStart?`<span class="chev open" data-collapse="${r[C.block]}" title="Collapse block ${r[C.block]}">\u25BC</span>`:'';
         const mark=nv?`<span class="flagmark${nv.flag?' on':''}" data-flag="${r[C.idx]}" title="${nv.note?escapeHtml(nv.note):'flagged'}">\u2691</span>`:'';
-        html+=`<div class="td idxcell" style="width:${c.w}px">${mark}<span>${escapeHtml(''+v)}</span></div>`;
+        html+=`<div class="td idxcell" style="width:${c.w}px">${chev}${mark}<span>${escapeHtml(''+v)}</span></div>`;
       } else {
         const cls='td'+(c.msg?' msg':'');
         html+=`<div class="${cls}" style="width:${c.w}px">${escapeHtml(''+v)}</div>`;
@@ -1239,24 +1346,39 @@ function render(){
   }
   vport.innerHTML=html;
 }
+function isSameBlockStart(prev, blk){
+  // true if prev display entry is a real row in the same block (so `r` isn't the first)
+  return prev && !prev.sum && prev[C.block]===blk;
+}
 function escapeHtml(s){return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
 
 scroll.addEventListener('scroll',render);
 window.addEventListener('resize',render);
 
 vport.addEventListener('click',e=>{
+  const chev=e.target.closest('.chev[data-collapse]');
+  if(chev){ e.stopPropagation(); collapseBlock(parseInt(chev.dataset.collapse,10)); return; }
   const fm=e.target.closest('.flagmark');
   if(fm){ e.stopPropagation(); toggleFlag(parseInt(fm.dataset.flag,10)); return; }
+  const sum=e.target.closest('.sumrow');
+  if(sum){ expandBlock(parseInt(sum.dataset.block,10)); return; }
   const tr=e.target.closest('.tr'); if(!tr) return;
   const idx=parseInt(tr.dataset.i,10), pos=parseInt(tr.dataset.p,10);
   selectRow(idx,pos,e.shiftKey,e.ctrlKey||e.metaKey);
 });
 
+function addRangeToSel(a,b){          // a,b are disp positions, inclusive
+  for(let i=a;i<=b;i++){
+    const e=disp[i];
+    if(e && e.sum){ for(const id of e.members) SEL.add(id); }
+    else if(e) SEL.add(e[C.idx]);
+  }
+}
 function selectRow(idx,pos,extend,toggle){
   if(extend && anchorPos>=0){
     const a=Math.min(anchorPos,pos), b=Math.max(anchorPos,pos);
     if(!toggle) SEL.clear();
-    for(let i=a;i<=b;i++) SEL.add(view[i][C.idx]);
+    addRangeToSel(a,b);
   } else if(toggle){
     SEL.has(idx) ? SEL.delete(idx) : SEL.add(idx);
     anchorPos=pos;
@@ -1272,17 +1394,24 @@ function updateCountLabel(){
     `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines` +
     (SEL.size ? `  ·  ${SEL.size.toLocaleString()} selected` : '');
 }
-function moveSel(step,extend){
-  if(!view.length) return;
-  let pos = anchorPos;
-  if(pos<0){ pos=0; } else { pos=Math.min(view.length-1,Math.max(0,pos+step)); }
-  const r=view[pos];
-  selectRow(r[C.idx],pos,extend,false);
-  // keep the cursor row on screen
+function ensureDispVisible(pos){
   const top=pos*ROWH;
   if(top < scroll.scrollTop) scroll.scrollTop=top;
   else if(top+ROWH > scroll.scrollTop+scroll.clientHeight)
     scroll.scrollTop = top+ROWH-scroll.clientHeight;
+}
+function moveSel(step,extend){
+  if(!disp.length) return;
+  let pos = anchorPos<0 ? 0 : Math.min(disp.length-1,Math.max(0,anchorPos+step));
+  const e=disp[pos];
+  if(e && e.sum){                 // cursor on a collapsed-block summary
+    if(extend && anchorPos>=0) addRangeToSel(Math.min(anchorPos,pos),Math.max(anchorPos,pos));
+    anchorPos=pos; selIdx=-1;
+    ensureDispVisible(pos); updateCountLabel(); render();
+  } else if(e){
+    selectRow(e[C.idx],pos,extend,false);
+    ensureDispVisible(pos);
+  }
 }
 
 // ---- copy selection as TSV ----
@@ -1469,6 +1598,7 @@ function paletteActions(){
   // filters / presets
   add('Focus search','Filter',()=>{$('search').focus();$('search').select();},{always:true,key:'Ctrl+F'});
   add('Toggle per-column filters','Filter',()=>$('filtBtn').click(),{always:true});
+  add('Collapse / expand recording blocks','View',()=>toggleCollapseAll(),{always:true});
   add('Reset all filters (show everything)','Filter',
     ()=>document.querySelector('[data-preset="reset"]').click());
   add('Preset: Events only','Filter',()=>document.querySelector('[data-preset="events"]').click());
@@ -1572,6 +1702,8 @@ $('palList').addEventListener('click',e=>{
 $('palMask').addEventListener('click',e=>{ if(e.target===$('palMask')) closePalette(); });
 
 
+// ---- menus ----
+function closeMenus(except){ ['colmenu','expmenu'].forEach(id=>{ if(id!==except) $(id).classList.remove('open'); }); }
 $('colsBtn').onclick=(e)=>{ e.stopPropagation(); closeMenus('colmenu'); $('colmenu').classList.toggle('open'); };
 $('expBtn').onclick=(e)=>{ e.stopPropagation(); closeMenus('expmenu'); $('expmenu').classList.toggle('open'); };
 $('filtBtn').onclick=()=>{
@@ -1579,6 +1711,7 @@ $('filtBtn').onclick=()=>{
   $('filtBtn').classList.toggle('primary', on);
   if(on){ const first=$('cfrow').querySelector('input'); if(first) first.focus(); }
 };
+$('collapseBtn').onclick=()=>toggleCollapseAll();
 document.addEventListener('click',e=>{
   if(!e.target.closest('#colmenu')&&!e.target.closest('#colsBtn')) $('colmenu').classList.remove('open');
   if(!e.target.closest('#expmenu')&&!e.target.closest('#expBtn')) $('expmenu').classList.remove('open');

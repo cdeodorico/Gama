@@ -27,7 +27,7 @@ import sys
 import ctypes as C
 from decimal import Decimal, ROUND_HALF_UP
 
-__version__ = "1.0.1"
+__version__ = "1.1.1"
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ EYE_LETTER = {0: "L", 1: "R", 2: "L"}
 EYE_WORD = {0: "LEFT", 1: "RIGHT", 2: "BINOCULAR"}
 
 DEFAULT_CONVERTED_FROM = (
-    "** CONVERTED USING GAMA " + __version__
+    "** CONVERTED FROM GAMA " + __version__
 )
 
 SP = " "  # the literal trailing space edf2asc writes after START/END times
@@ -717,7 +717,7 @@ CAT_LABEL = {
 
 WIRE_COLUMNS = ["idx", "cat", "grp", "mkind", "start", "end", "dur", "eye",
                 "x1", "y1", "x2", "y2", "amp", "vel", "pupil", "resx", "resy",
-                "val", "raw"]
+                "val", "raw", "block"]
 I_IDX, I_CAT, I_GRP, I_MK, I_START, I_END, I_DUR, I_EYE = 0, 1, 2, 3, 4, 5, 6, 7
 I_RAW = 18
 
@@ -833,6 +833,7 @@ def build_dataset(edf_path, converted_from_line, progress=None):
     records, _blocks = em.build_records(edf_path, converted_from_line, progress)
     rows, parsed, times = [], [], []
     group_counts, kind_counts = {}, {}
+    blocks = {}                        # block index -> summary accumulator
     for idx, rec in enumerate(records):
         cat = rec["cat"]
         grp = CAT_GROUP[cat]
@@ -844,12 +845,27 @@ def build_dataset(edf_path, converted_from_line, progress=None):
             kind_counts[mk] = kind_counts.get(mk, 0) + 1
         if isinstance(d["start"], int):
             times.append(d["start"])
+        blk = rec["block"]
         rows.append([
             idx, CAT_LABEL[cat], grp, rec["mkind"] or "",
             d["start"], d["end"], d["dur"], d["eye"],
             d["x1"], d["y1"], d["x2"], d["y2"], d["amp"], d["vel"],
             d["pupil"], d["resx"], d["resy"], d["val"], rec["text"],
+            blk if blk is not None else -1,
         ])
+        if blk is not None:
+            b = blocks.get(blk)
+            if b is None:
+                b = blocks[blk] = {"block": blk, "first": idx, "last": idx,
+                                   "tmin": None, "tmax": None, "n": 0,
+                                   "counts": {}}
+            b["last"] = idx
+            b["n"] += 1
+            b["counts"][grp] = b["counts"].get(grp, 0) + 1
+            if isinstance(d["start"], int):
+                b["tmin"] = d["start"] if b["tmin"] is None else min(b["tmin"], d["start"])
+                t2 = d["end"] if isinstance(d["end"], int) else d["start"]
+                b["tmax"] = t2 if b["tmax"] is None else max(b["tmax"], t2)
     meta = {
         "filename": os.path.basename(edf_path),
         "total": len(records),
@@ -859,6 +875,7 @@ def build_dataset(edf_path, converted_from_line, progress=None):
         "group_counts": group_counts,
         "msg_kinds": ["experiment", "config", "cal", "draw"],
         "kind_counts": kind_counts,
+        "blocks": [blocks[k] for k in sorted(blocks)],
     }
     return records, {"columns": WIRE_COLUMNS, "rows": rows, "meta": meta}, parsed
 
