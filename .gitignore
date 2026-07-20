@@ -1,0 +1,8 @@
+/build/
+/dist/
+/presets/
+/changes
+/gama.spec
+/gama_mac.py
+/gama_mac.spec
+/icon.png
