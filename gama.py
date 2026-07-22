@@ -73,9 +73,7 @@ EYE_LETTER = {0: "L", 1: "R", 2: "L"}
 EYE_WORD = {0: "LEFT", 1: "RIGHT", 2: "BINOCULAR"}
 
 DEFAULT_CONVERTED_FROM = (
-    "** CONVERTED FROM C:\\Users\\Canaan\\PycharmProjects\\Landolt_Exp\\data\\"
-    "AP_2026_05_19_13_58\\AP_2026_05_19_13_58.EDF using edfapi 4.4.1 Win32  "
-    "EyeLink Dataviewer Subcomponent Mar 19 2024 on Sat May 23 22:15:57 2026"
+    "** CONVERTED FROM GAMA " + __version__
 )
 
 SP = " "  # the literal trailing space edf2asc writes after START/END times
