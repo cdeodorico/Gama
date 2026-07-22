@@ -153,6 +153,16 @@
     text-overflow:ellipsis;white-space:nowrap}
   .watchbar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);
     animation:wpulse 1.4s infinite}
+  .updpill{display:none;align-items:center;gap:6px;margin-left:10px;
+    background:rgba(54,192,143,.14);border:1px solid var(--accent2);
+    color:var(--accent2);border-radius:12px;padding:2px 9px;font-size:11px;
+    cursor:pointer;text-decoration:none;white-space:nowrap}
+  .updpill:hover{background:rgba(54,192,143,.26)}
+  .updpill.show{display:inline-flex}
+  .updrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    padding:9px 11px;margin:6px 0 10px}
+  .updrow .grow{flex:1;min-width:180px}
   .watchbar.off{opacity:.75}
   .watchbar.off .dot{background:var(--muted);animation:none}
   @keyframes wpulse{0%,100%{opacity:1}50%{opacity:.35}}
@@ -299,6 +309,7 @@
     <h1>Gama</h1>
     <span class="file" id="fname">…</span>
     <span class="count" id="count"></span>
+    <a class="updpill" id="updPill" target="_blank" rel="noopener"></a>
     <span class="spacer"></span>
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
     <button class="btn" id="trialsBtn" title="Segment trials and match fixations to areas of interest">Trials ▾</button>
@@ -414,7 +425,6 @@
       <div class="mtitle">Share</div>
       <div class="mi" id="copyLink">Copy link to this view</div>
       <div class="mi" id="copyRows">Copy selected rows</div>
-      <div class="mtitle">Sidecar</div>
       <label class="mi" id="sidecarRow" style="display:flex;align-items:center;gap:7px"
              title="Write a small .gama.json next to CSV/TSV/HTML recording the filters, version and source. Not written for ASC.">
         <input type="checkbox" id="sidecarChk"> include provenance .json
@@ -731,6 +741,17 @@
           reach that path (a shared drive, say).</dd>
       </dl>
 
+      <h3>Updates</h3>
+      <div class="updrow">
+        <span class="grow" id="updText">Checking&hellip;</span>
+        <a class="btn sm" id="updGet" target="_blank" rel="noopener" style="display:none">Get it</a>
+        <button class="btn sm" id="updNow">Check now</button>
+      </div>
+      <label class="chk" style="margin-left:2px"><input type="checkbox" id="updOn">
+        look for new releases (once a day, and the only time gama uses the network)</label>
+      <p>gama never downloads or installs anything by itself &mdash; it just tells you
+      a newer release exists and points you at it.</p>
+
       <h3>Trials &amp; areas of interest</h3>
       <p><b>Trials &#9662;</b> in the toolbar opens a panel that cuts the recording
       into trials and works out which stimulus each fixation and saccade landed on.
@@ -878,7 +899,7 @@ const $=id=>document.getElementById(id);
 const fileById=id=>FILES.find(f=>f.id===id);
 
 async function boot(){
-  loadRenames(); loadInfo();
+  loadRenames(); loadInfo(); loadUpdate(false);
   try{
     setTheme(localStorage.getItem('gama.theme')||'dark');
     setFont(localStorage.getItem('gama.font')||'m');
@@ -1200,6 +1221,52 @@ document.addEventListener('keydown',e=>{
 
 $('emptyAdd').onclick=()=>openBrowser();
 
+// ---- update checking ----------------------------------------------------
+// The server does the actual asking (once a day, on a background thread); this
+// only reflects whatever it found.
+let UPD=null;
+function renderUpdate(){
+  const u=UPD||{}; const pill=$('updPill'), txt=$('updText'), get=$('updGet');
+  const on = u.enabled!==false;
+  pill.classList.toggle('show', !!(on && u.update_available));
+  if(on && u.update_available){
+    pill.textContent='Update: '+u.latest;
+    pill.href=(u.asset&&u.asset.url)||u.url||'#';
+    pill.title=(u.hint||'')+'  ('+(u.asset?u.asset.name:'release page')+')';
+  }
+  if(!txt) return;
+  $('updOn').checked=u.enabled!==false;
+  get.style.display='none';
+  if(u.enabled===false){ txt.textContent='Update checking is off. gama '+(u.current||''); return; }
+  if(u.update_available){
+    txt.innerHTML='<b>'+escapeHtml(u.latest)+'</b> is available (you have '+
+      escapeHtml(u.current)+'). '+escapeHtml(u.hint||'');
+    get.style.display=''; get.href=(u.asset&&u.asset.url)||u.url;
+    get.textContent=u.asset?('Download '+u.asset.name):'Open release page';
+  } else if(u.error){
+    txt.textContent='gama '+u.current+' — could not check: '+u.error;
+  } else if(u.no_releases||!u.latest){
+    txt.textContent='gama '+u.current+' — no releases published yet.';
+  } else {
+    txt.textContent='gama '+u.current+' — up to date.';
+  }
+}
+async function loadUpdate(force){
+  try{
+    UPD = force
+      ? await (await fetch('/api/update',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'check'})})).json()
+      : await (await fetch('/api/update')).json();
+  }catch(e){ UPD={error:'not reachable'}; }
+  renderUpdate();
+}
+$('updNow').onclick=()=>{ $('updText').textContent='Checking…'; loadUpdate(true); };
+$('updOn').onchange=async e=>{
+  UPD=await (await fetch('/api/update',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({enabled:e.target.checked})})).json();
+  if(e.target.checked) loadUpdate(false); else renderUpdate();
+};
+
 // ---- about / help dialog ----
 let INFO=null;
 async function loadInfo(){
@@ -1230,7 +1297,7 @@ $('copyDiag').onclick=async()=>{
   try{ await navigator.clipboard.writeText(t); toast('Diagnostics copied'); }
   catch(e){ prompt('Copy this:', t); }
 };
-$('aboutBtn').onclick=()=>{ loadInfo(); $('aboutMask').classList.add('open'); };
+$('aboutBtn').onclick=()=>{ loadInfo(); loadUpdate(false); $('aboutMask').classList.add('open'); };
 $('aboutClose').onclick=()=>$('aboutMask').classList.remove('open');
 $('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classList.remove('open'); };
 document.addEventListener('keydown',e=>{
@@ -2256,6 +2323,7 @@ function paletteActions(){
   // help
   add('About / Help','Help',()=>{loadInfo();$('aboutMask').classList.add('open');},{always:true,key:'?'});
   add('Copy diagnostics','Help',()=>$('copyDiag').click(),{always:true});
+  add('Check for updates','Help',()=>{loadInfo();loadUpdate(true);$('aboutMask').classList.add('open');},{always:true});
   return A.filter(a=>a.enabled);
 }
 

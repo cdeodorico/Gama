@@ -12,6 +12,7 @@ from .exports import (export_asc, export_table, export_html,
                       build_provenance)
 from .preset_store import DEFAULT_PRESETS_DIR
 from .server import serve
+from . import updates
 
 
 
@@ -137,6 +138,10 @@ def main(argv=None):
     ap.add_argument("edf", nargs="*", help="path(s) to input .EDF file(s)")
     ap.add_argument("--version", action="version",
                     version=f"gama {__version__}")
+    ap.add_argument("--check-update", action="store_true",
+                    help="ask GitHub whether a newer release exists, then exit")
+    ap.add_argument("--no-update-check", action="store_true",
+                    help="don't contact GitHub for update checks this run")
     ap.add_argument("--port", type=int, default=0, help="web port (default auto)")
     ap.add_argument("--no-browser", action="store_true",
                     help="do not auto-open a browser")
@@ -173,6 +178,23 @@ def main(argv=None):
     ap.add_argument("--min-fix-dur", type=int, help="minimum fixation duration (ms)")
     ap.add_argument("--min-sacc-dur", type=int, help="minimum saccade duration (ms)")
     args = ap.parse_args(argv)
+
+    updates.configure(os.path.dirname(os.path.abspath(args.presets_dir)))
+    if args.no_update_check:
+        updates.set_enabled(False)
+    if args.check_update:
+        st = updates.check(force=True)
+        print("gama %s" % st["current"])
+        if st.get("error"):
+            print("  could not check: %s" % st["error"])
+        elif st.get("no_releases") or not st.get("latest"):
+            print("  no releases published yet at %s" % st["releases_page"])
+        elif st["update_available"]:
+            print("  %s is available: %s" % (st["latest"], st["url"]))
+            print("  %s" % st["hint"])
+        else:
+            print("  up to date (latest release is %s)" % st["latest"])
+        return
 
     headless = bool(args.export or args.stats)
     paths = list(args.edf)

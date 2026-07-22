@@ -22,7 +22,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _MODULES = ("version", "edfapi", "convert", "paths", "dataset", "filters",
             "exports", "notes", "preset_store", "files", "trials",
-            "diagnostics", "server", "cli")
+            "diagnostics", "updates", "server", "cli")
 
 # Running from source, make sure the folder holding this script is importable
 # even when it was launched by absolute path from somewhere else.

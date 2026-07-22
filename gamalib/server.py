@@ -23,6 +23,7 @@ from .files import (Registry, Watcher, _ensure_parsed,
                     browse_dir, list_edfs, _is_edf)
 from .trials import suggest_markers, analyse_trials
 from .diagnostics import diagnostics
+from . import updates
 
 
 
@@ -74,6 +75,8 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._json(browse_dir(q.get("path", [""])[0]))
             elif route == "/api/watch":
                 self._json(watcher.status())
+            elif route == "/api/update":
+                self._json(updates.status())
             elif route == "/api/schemes":
                 self._json(_load_presets(_schemes_dir(presets_dir)))
             elif route == "/api/presets":
@@ -138,6 +141,8 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._write_note()
             elif route == "/api/schemes":
                 self._schemes_write()
+            elif route == "/api/update":
+                self._update_write()
             elif route == "/api/trials/suggest":
                 self._trials_suggest()
             elif route == "/api/trials/run":
@@ -146,6 +151,15 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._trials_export()
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def _update_write(self):
+            req = self._body()
+            if "enabled" in req:
+                updates.set_enabled(bool(req["enabled"]))
+            if req.get("action") == "check":
+                self._json(updates.check(force=True))
+                return
+            self._json(updates.status())
 
         # ---- trial / AOI analysis -----------------------------------
         def _entry_for(self, req):
@@ -373,6 +387,8 @@ def serve(paths, converted_from_line, port, open_browser, presets_dir):
     for p in paths:
         reg.add(p)
     watcher = Watcher(reg)
+    # a quiet, once-a-day look at GitHub for a newer release
+    updates.start_background(os.path.dirname(os.path.abspath(presets_dir)))
     try:
         os.makedirs(presets_dir, exist_ok=True)
     except OSError:
