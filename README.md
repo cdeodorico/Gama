@@ -124,6 +124,23 @@ Save the whole setup as a **scheme** and it lands in `schemes/` next to the scri
 
 This bit is UI only, there's no command line equivalent yet.
 
+## Updates
+
+Gama has a look at the GitHub releases page once a day and tells you if there's a newer version. That's it - it never downloads or installs anything on its own, and it's the only time the program touches the network.
+
+If there's something new you get a small `Update: x.y.z` pill in the header; clicking it takes you to the download. There's also a line in About/Help with a **Check now** button and a tickbox to turn the whole thing off if you'd rather it didn't phone home.
+
+It knows how you're running it, so the advice differs: the `.exe` sends you to the release asset, a source checkout gets told to `git pull`. Your presets, schemes and notes all live outside the program, so updating never eats them.
+
+From the command line:
+
+```
+python gama.py --check-update      # ask now, print the answer, exit
+python gama.py --no-update-check   # turn it off (remembered)
+```
+
+If GitHub is unreachable, rate limited, or there are no releases published yet, it shrugs and carries on - nothing blocks startup and nothing pops up.
+
 # Keyboard shortcuts
 
 `Ctrl` is `⌘` on macOS. Press `?` inside gama to see this list without leaving the app.
