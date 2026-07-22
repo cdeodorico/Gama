@@ -153,6 +153,8 @@
     text-overflow:ellipsis;white-space:nowrap}
   .watchbar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);
     animation:wpulse 1.4s infinite}
+  .watchbar.off{opacity:.75}
+  .watchbar.off .dot{background:var(--muted);animation:none}
   @keyframes wpulse{0%,100%{opacity:1}50%{opacity:.35}}
   .dlgfoot{display:flex;gap:8px;align-items:center;padding:12px 14px}
   .dlgfoot .sel{color:var(--muted);flex:1;font-size:12px}
@@ -586,8 +588,12 @@
       same and then keep watching: any new recording that appears is opened
       automatically as a new tab, so you can look at data while it's being
       collected. A "Watching&hellip;" badge appears in the header with a Stop
-      button. gama waits until a file's size stops changing before opening it, so
-      it won't grab a recording that's still being written.</p>
+      button; once you stop, the badge stays put and offers <b>Watch a folder&hellip;</b>
+      so you can start again on the same folder or a different one. Starting a
+      watch begins a clean session &mdash; whatever was open is closed first, and
+      the folder's current contents are loaded. gama waits until a file's size
+      stops changing before opening it, so it won't grab a recording that's still
+      being written.</p>
 
       <h3>Presets</h3>
       <dl>
@@ -1253,46 +1259,65 @@ $('fbWatch').onclick=async()=>{
   closeBrowser();
   const res=await fetch('/api/watch',{method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({path:folder, recursive, open_existing:true})});
+    body:JSON.stringify({path:folder, recursive, open_existing:true, clear:true})});
   const d=await res.json();
+  resetSession();                       // watching a folder starts fresh
   FILES=d.files; buildTabs();
-  if(d.added && d.added.length && active===-1) await loadFile(d.added[0]);
-  else if(FILES.length && active===-1) await loadFile(FILES[0].id);
+  if(FILES.length) await loadFile(FILES[0].id);
+  else { showEmpty(true); toast('No .EDF files there yet — waiting for new ones'); }
   startWatchPolling(folder);
 };
+
+// Drop everything tied to the previous set of recordings.
+function resetSession(){
+  cache={}; active=-1; ROWS=[]; META=null; view=[]; disp=[];
+  SEL.clear(); anchorPos=-1; selIdx=-1; NOTES={};
+  TRMAP=null; TRRES=null; SUG=null;
+  COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=true; });
+  buildColMenu(); buildHead();
+  $('details').classList.remove('open');
+}
 
 // ---- watch folder: reflect auto-opened files as they appear ----
 let watchTimer=null, watchFolder=null;
 function startWatchPolling(folder){
   watchFolder=folder;
-  showWatchBar(true);
+  showWatchBar('on');
   if(watchTimer) clearInterval(watchTimer);
   watchTimer=setInterval(async()=>{
     try{
       const before=FILES.length;
       const files=await (await fetch('/api/files')).json();
       if(files.length!==before){ FILES=files; buildTabs();
-        if(files.length>before) toast('New recording opened'); }
+        if(files.length>before){ toast('New recording opened');
+          if(active===-1 && files.length) loadFile(files[0].id); } }
     }catch(e){}
   }, 3000);
 }
 async function stopWatching(){
   if(watchTimer){ clearInterval(watchTimer); watchTimer=null; }
-  showWatchBar(false); watchFolder=null;
   try{ const d=await (await fetch('/api/watch',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stop'})})).json();
     FILES=d.files; buildTabs(); }catch(e){}
+  showWatchBar('off');                  // stays put so you can start again
 }
-function showWatchBar(on){
+function showWatchBar(state){
   let bar=$('watchbar');
-  if(on){
-    if(!bar){ bar=document.createElement('div'); bar.id='watchbar'; bar.className='watchbar';
-      document.querySelector('header').appendChild(bar); }
-    bar.innerHTML=`<span class="dot"></span> Watching <b>${escapeHtml(watchFolder||'')}</b> `+
-      `<button class="btn sm" id="watchStop">Stop</button>`;
+  if(!bar){
+    bar=document.createElement('div'); bar.id='watchbar'; bar.className='watchbar';
+    document.querySelector('header').appendChild(bar);
+  }
+  bar.style.display='flex';
+  bar.classList.toggle('off', state==='off');
+  if(state==='on'){
+    bar.innerHTML='<span class="dot"></span> Watching <b>'+escapeHtml(watchFolder||'')+
+      '</b> <button class="btn sm" id="watchStop">Stop</button>';
     $('watchStop').onclick=stopWatching;
-    bar.style.display='flex';
-  } else if(bar){ bar.style.display='none'; }
+  } else {
+    bar.innerHTML='<span class="dot"></span> Not watching '+
+      '<button class="btn sm" id="watchStart">Watch a folder…</button>';
+    $('watchStart').onclick=()=>openBrowser();
+  }
 }
 
 function buildSidebar(){
@@ -2190,6 +2215,7 @@ function paletteActions(){
   add('Open a folder…','File',()=>openBrowser(),{always:true,key:'Ctrl+O'});
   add('Watch a folder for new recordings…','File',()=>openBrowser(),{always:true});
   if(watchTimer) add('Stop watching folder','File',()=>stopWatching(),{always:true});
+  else add('Start watching a folder…','File',()=>openBrowser(),{always:true});
   if(haveFile) add('Close current file','File',()=>closeFile(active),{key:'Alt+W'});
   FILES.forEach((f,i)=>add('Switch to: '+(RENAMES[f.path]||f.name),'Tab',
     ()=>loadFile(f.id),{always:true,key:i<9?('Alt+'+(i+1)):undefined}));
