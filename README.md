@@ -39,7 +39,7 @@ You can also pass files headless if you like:
 python gama.py sub01.EDF sub02.EDF
 ```
 
-Each file gets a tab. `+` adds more, `✕` closes one. Files are parsed (lazily) the first time you look at them, so opening ten recordings doesn't crash shit systems until you click through to them.
+Each file gets a tab. `+` adds more, `✕` closes one. Files are parsed (lazily) the first time you look at them, so opening ten recordings doesn't crash shit systems until you click through to them. You also have the option of selection "Watch Folder". This allows the selection of a folder rather than a number of recordings. If any new `.EDF` files are added to this directory, Gama will detect them and automatically add them (lazily).
 
 Filters live in the left panel and apply to whichever tab you're on, so you can set up a view configuration once and click between recordings to compare. There's an About/Help button at the bottom of that panel explaining every option and column.
 ## Command line
@@ -83,6 +83,46 @@ ASC exports always keep absolute timestamps, otherwise they wouldn't be valid AS
 ## Presets
 
 Save a set of filters from the sidebar in `presets/` next to the script as a small JSON file. They're  text and one file per preset, so you can commit them, email them, or hand-edit them, etc..
+
+## Trials and areas of interest
+
+The other half of the program, and the bit that turns this from a viewer into something that produces numbers. `Trials ▾` in the toolbar opens a panel that cuts the recording into trials and works out which stimulus each fixation and saccade actually landed on.
+
+It reads *your* messages. I'm not going to pretend everyone labels things the way I do, so when the panel opens it scans the file, guesses the markers, and you correct whatever it got wrong. On my recordings it picks the lot unassisted: `TRIAL_START`, `TRIAL_END`, `STIM_POS`, and `DISPLAY_ONSET` -> `RESPONSE` for the analysis window.
+
+### What you point it at
+
+| | |
+| --- | --- |
+| **Trial start / end** | The messages that open and close a trial. Whatever trails the marker becomes per-trial variables, so `TRIAL_START index=1 block=6_True type=Relational Distractor` hands you `index`, `block` and `type` columns. |
+| **Extra variables** | Other messages inside the trial worth harvesting - a metadata line, or the result line with accuracy and RT on it. Add as many as you want, they all get folded into the trial. |
+| **Window** | Optionally only count events between two messages inside the trial (display onset -> response, say), with ms offsets if you need to nudge either edge. |
+| **Stimuli / AOIs** | The message that places each stimulus, and which of its fields hold X, Y and the label. |
+| **Region** | How big an AOI actually is: a circle of some radius (the default), a rectangle, nearest-stimulus-wins, or sizes read from fields in the message itself. |
+
+### Message formats
+
+Three ways to read fields, because nobody formats these the same:
+
+- **`key=value`** - covers most things. There's a "values may contain spaces" toggle for when a value runs on, e.g. `type=Relational Distractor`, which otherwise gets guillotined at the space.
+- **positions** - split on whitespace and pick fields by index, for `STIM 2 NT R 960 90` style lines.
+- **regex** - named groups. The escape hatch for when your format is genuinely cursed.
+
+`STIM_POS index=1 stim1 kind=NT dir=R x=960 y=90` parses fine as key=value with the spaces toggle *off* - the bare `stim1` becomes a positional field you can use as the label if you'd rather have that than `kind`.
+
+### What you get out
+
+**Preview** shows the first handful of parsed trials with their variables and AOI positions, so you find out you've cocked up the config before you commit to it rather than after.
+
+**Apply to table** adds `Trial` and `AOI` columns to the main view - filterable and sortable like everything else, and they ride along in the CSV/TSV/HTML row exports (saccades also carry the AOI they left from).
+
+**Export trials** is the one you actually want: one row per trial, with your variables plus fixation and saccade counts, the first fixation and first saccade, their latencies, and dwell time and fixation count per AOI label.
+
+"First" means the first one that *hit something*. The opening fixation is usually still parked in the middle of the screen and reporting that as your first fixation is useless, so anything that landed on nothing gets skipped. `first_fix_rank` / `first_sacc_rank` tell you how many were skipped (1 = the very first one hit an AOI), which is a decent smell test - if that number starts creeping up, your radius is probably too small.
+
+Save the whole setup as a **scheme** and it lands in `schemes/` next to the script. Configure it once, use it on every participant, email it to whoever's stuck doing the analysis.
+
+This bit is UI only, there's no command line equivalent yet.
 
 # Keyboard shortcuts
 
@@ -130,7 +170,7 @@ are copied, so hide what you don't want first.
 
 | Key | Action |
 | --- | --- |
-| `Ctrl` + `O` | Add EDF files |
+| `Ctrl` + `O` | Open a folder of recordings |
 | `Alt` + `1` … `Alt` + `9` | Switch to tab 1–9 |
 | `Alt` + `W` | Close the current tab |
 | Double-click a tab | Rename it |
@@ -153,8 +193,18 @@ are copied, so hide what you don't want first.
 - Blinks inside a saccade get merged into one, and missing gaze shows up as `.`
   with a huge scientific-notation amplitude. Both are `edf2asc` behaviours, faithfully
   reproduced, much to my chagrin.
-- Everything is in one file (`gama.py`), engine and UI, so there's nothing to
-  install and nothing to keep in sync.
+- Trial and AOI matching is only as good as the radius you hand it. Check the
+  preview and the rank columns before you trust a spreadsheet.
+- `gama.py` is only the launcher. The code lives in `gamalib/` next to it, a
+  module per job - `convert.py` does EDF->ASC, `trials.py` the trial and AOI
+  analysis, `server.py` the web bits, and so on. Keep those together along with
+  `index.html`. If you ever touch `convert.py`, check byte-identity still holds
+  before anything else:
+
+  ```
+  python gama.py rec.EDF --export /tmp/out.asc
+  cmp /tmp/out.asc reference.asc
+  ```
 
 ## License
 
