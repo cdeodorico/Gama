@@ -6,3 +6,38 @@
 /gama_mac.py
 /gama_mac.spec
 /icon.png
+
+# Python byte-code — regenerated on every run, never belongs in git
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# PyInstaller output
+build/
+dist/
+*.manifest
+# icon.ico / icon.icns are generated from icon.png at build time
+icon.ico
+icon.icns
+
+# gama's own runtime data, created next to the app
+presets/
+schemes/
+
+# Recordings and anything derived from them: keep data out of the repo.
+# If you do want a small sample committed, force it: git add -f sample.EDF
+*.EDF
+*.edf
+*.asc
+*.gama-notes.json
+*.gama.json
+
+# Editors and OS clutter
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
