@@ -1,5 +1,9 @@
 # Gama
 
+<p align="center">
+    <img width="817" height="533" alt="Screenshot 2026-07-22 at 15-38-25 Gama" src="https://github.com/user-attachments/assets/ad5d24e1-1ab1-43a1-a6a6-f249c9a1001e" />
+</p>
+
 A viewer for SR Research EyeLink `.EDF` files. It converts a recording the same way SR Research's `edf2asc` does, then shows the result in the browser as a sortable, filterable table instead of an insane wall of text.
 
 Through multiple filters one can extract what they actually care about. If you don't want all the dataviewer BS, just filter it.
