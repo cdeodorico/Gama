@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gama</title>
+<title>EDF Explorer</title>
 <link rel="icon" type="image/png" href="/icon.png">
 <style>
   :root{
@@ -58,6 +58,49 @@
   .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
     display:none;align-items:center;justify-content:center}
   .mask.open{display:flex}
+  /* trials & AOI panel */
+  .trdlg{width:min(880px,95vw);height:min(660px,92vh);position:relative}
+  .trtabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line)}
+  .trtab{padding:7px 12px;cursor:pointer;color:var(--muted);font-size:12px;
+    border-bottom:2px solid transparent;user-select:none}
+  .trtab:hover{color:var(--txt)}
+  .trtab.active{color:var(--txt);border-bottom-color:var(--accent);font-weight:600}
+  .trbody{flex:1;overflow:auto;padding:12px 16px}
+  .trrow{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+  .trrow.sub{padding-left:14px}
+  .trrow > label{min-width:118px;color:var(--muted);font-size:12px;
+    display:flex;align-items:center;gap:6px}
+  .trrow label.inl{min-width:0;cursor:pointer}
+  .trrow select,.trrow input[type=text],.trrow input[type=number]{margin:0}
+  .trrow select.mk{width:190px}
+  .trrow select.mode{width:120px}
+  .trrow select.fld{width:120px;min-width:120px}
+  .trrow input[type=text]{flex:1;min-width:150px}
+  .dimlab{color:var(--muted);font-size:12px}
+  .trex{margin:-2px 0 10px 126px;font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .trex b{color:var(--accent2);font-weight:600}
+  .trhint{color:var(--muted);font-size:11px;margin:0 0 10px 126px}
+  .trsep{border:0;border-top:1px solid var(--line);margin:14px 0}
+  .trchips{display:flex;gap:6px;flex-wrap:wrap}
+  .trchip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:12px;padding:2px 8px;font-size:11px}
+  .trchip span{cursor:pointer;color:var(--muted);font-weight:700}
+  .trchip span:hover{color:#e05252}
+  .trpv{font-size:12px}
+  .trpv table{border-collapse:collapse;width:100%}
+  .trpv th,.trpv td{border:1px solid var(--line);padding:3px 7px;text-align:left;
+    white-space:nowrap;font-variant-numeric:tabular-nums}
+  .trpv th{background:var(--panel2);position:sticky;top:0}
+  .trpv .tcard{border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+    margin-bottom:9px;background:var(--panel2)}
+  .trpv .tcard h4{margin:0 0 6px;font-size:12px}
+  .trpv .kvs{color:var(--muted);font-size:11px;margin-bottom:6px;
+    white-space:normal;word-break:break-word}
+  .trwarn{background:rgba(224,82,82,.12);border:1px solid #e05252;border-radius:6px;
+    padding:7px 10px;margin-bottom:10px;font-size:12px}
+  .trok{color:var(--accent2)}
   /* command palette */
   .pal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;
     display:none;justify-content:center;align-items:flex-start}
@@ -99,6 +142,18 @@
   .fitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fitem .sz{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
   .fitem.on{background:var(--rowsel)}
+  .fitem.file{cursor:default;opacity:.85}
+  .fitem.file:hover{background:transparent}
+  .fbchk{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;
+    margin-right:auto;cursor:pointer;user-select:none}
+  .watchbar{display:flex;align-items:center;gap:8px;margin-left:12px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+    padding:3px 8px;font-size:12px;color:var(--muted)}
+  .watchbar b{color:var(--txt);font-weight:600;max-width:280px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .watchbar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);
+    animation:wpulse 1.4s infinite}
+  @keyframes wpulse{0%,100%{opacity:1}50%{opacity:.35}}
   .dlgfoot{display:flex;gap:8px;align-items:center;padding:12px 14px}
   .dlgfoot .sel{color:var(--muted);flex:1;font-size:12px}
   .empty-state{position:absolute;inset:0;display:flex;flex-direction:column;
@@ -208,7 +263,11 @@
     font-weight:700;line-height:16px;color:var(--badgetxt)}
   .details{flex:none;height:0;overflow:hidden;background:var(--panel);
     border-top:1px solid var(--line);transition:height .12s}
-  .details.open{height:190px;overflow:auto;padding:10px 14px}
+  .details.open{height:190px;overflow:auto;padding:10px 14px;position:relative}
+  .detclose{position:absolute;top:8px;right:10px;z-index:2;background:var(--panel2);
+    border:1px solid var(--line);color:var(--muted);border-radius:6px;
+    width:24px;height:24px;cursor:pointer;line-height:1;font-size:12px}
+  .detclose:hover{color:var(--txt);border-color:var(--accent)}
   .details table{border-collapse:collapse}
   .details td{padding:2px 12px 2px 0;vertical-align:top}
   .details td.k{color:var(--muted);white-space:nowrap}
@@ -235,11 +294,12 @@
 <div class="app">
   <header>
     <img class="appicon" src="/icon.png" alt="" onerror="this.remove()">
-    <h1>Gama</h1>
+    <h1>EDF&nbsp;Explorer</h1>
     <span class="file" id="fname">…</span>
     <span class="count" id="count"></span>
     <span class="spacer"></span>
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
+    <button class="btn" id="trialsBtn" title="Segment trials and match fixations to areas of interest">Trials ▾</button>
     <button class="btn" id="collapseBtn" title="Collapse each recording block to one summary row">Collapse blocks</button>
     <button class="btn" id="filtBtn" title="Show per-column filter row">Filters ▾</button>
     <button class="btn" id="colsBtn">Columns ▾</button>
@@ -332,7 +392,7 @@
         <div class="loading hidden" id="loading">Loading…</div>
         <div class="empty-state" id="emptyState" style="display:none">
           <div class="big">No files open</div>
-          <button class="btn" id="emptyAdd">Add EDF files…</button>
+          <button class="btn" id="emptyAdd">Open a folder…</button>
         </div>
       </div>
       <div class="details" id="details"></div>
@@ -352,11 +412,120 @@
       <div class="mtitle">Share</div>
       <div class="mi" id="copyLink">Copy link to this view</div>
       <div class="mi" id="copyRows">Copy selected rows</div>
-      <div class="mtitle">Sidecar</div>
       <label class="mi" id="sidecarRow" style="display:flex;align-items:center;gap:7px"
              title="Write a small .gama.json next to CSV/TSV/HTML recording the filters, version and source. Not written for ASC.">
         <input type="checkbox" id="sidecarChk"> include provenance .json
       </label>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="trMask">
+  <div class="dlg trdlg">
+    <header style="display:flex;align-items:center;gap:10px">
+      <h2 style="flex:1">Trials &amp; areas of interest</h2>
+      <select id="trScheme" style="width:auto;margin:0" title="Load a saved scheme"><option value="">— scheme —</option></select>
+      <button class="btn sm" id="trSave" title="Save this scheme for reuse">Save…</button>
+      <button class="btn sm" id="trDel" title="Delete the selected scheme">Delete</button>
+      <button class="btn sm" id="trClose" title="Close">✕</button>
+    </header>
+    <div class="trtabs">
+      <div class="trtab active" data-t="setup">1 · Setup</div>
+      <div class="trtab" data-t="preview">2 · Preview</div>
+      <div class="trtab" data-t="results">3 · Results</div>
+    </div>
+
+    <div class="trbody" id="trSetup">
+      <div class="trrow">
+        <label>Trial starts at</label>
+        <select id="trStart" class="mk"></select>
+        <select id="trStartMode" class="mode"><option value="prefix">starts with</option><option value="contains">contains</option><option value="exact">is exactly</option><option value="regex">regex</option></select>
+        <input type="text" id="trStartCustom" placeholder="or type a marker…">
+      </div>
+      <div class="trex" id="trStartEx"></div>
+
+      <div class="trrow">
+        <label>Trial ends at</label>
+        <select id="trEnd" class="mk"></select>
+        <select id="trEndMode" class="mode"><option value="prefix">starts with</option><option value="contains">contains</option><option value="exact">is exactly</option><option value="regex">regex</option></select>
+        <input type="text" id="trEndCustom" placeholder="or type a marker…">
+      </div>
+      <div class="trex" id="trEndEx"></div>
+
+      <div class="trrow">
+        <label>Extra variables</label>
+        <select id="trVarPick" class="mk"></select>
+        <button class="btn sm" id="trVarAdd">+ add</button>
+        <span class="trchips" id="trVarChips"></span>
+      </div>
+      <div class="trhint">Messages whose fields should be folded into each trial — e.g. a metadata line, or a result line carrying accuracy.</div>
+
+      <div class="trrow">
+        <label><input type="checkbox" id="trWinOn"> Only count events between</label>
+        <select id="trWinFrom" class="mk"></select>
+        <span class="dimlab">and</span>
+        <select id="trWinTo" class="mk"></select>
+      </div>
+      <div class="trrow sub">
+        <label>Offsets (ms)</label>
+        <input type="number" id="trWinOffA" placeholder="0" style="width:80px">
+        <span class="dimlab">after the first,</span>
+        <input type="number" id="trWinOffB" placeholder="0" style="width:80px">
+        <span class="dimlab">after the second</span>
+      </div>
+
+      <hr class="trsep">
+
+      <div class="trrow">
+        <label>Stimuli / AOIs from</label>
+        <select id="trAoi" class="mk"></select>
+        <select id="trAoiMode" class="mode"><option value="prefix">starts with</option><option value="contains">contains</option><option value="exact">is exactly</option><option value="regex">regex</option></select>
+        <input type="text" id="trAoiCustom" placeholder="or type a marker…">
+      </div>
+      <div class="trrow sub">
+        <label>Read fields as</label>
+        <select id="trParseMode"><option value="kv">key=value</option><option value="positional">positions</option><option value="regex">regex</option></select>
+        <label class="inl"><input type="checkbox" id="trGreedy"> values may contain spaces</label>
+      </div>
+      <div class="trrow sub" id="trRegexRow" style="display:none">
+        <label>Pattern</label>
+        <input type="text" id="trAoiRegex" placeholder="x=(?&lt;x&gt;\d+)\s+y=(?&lt;y&gt;\d+)">
+      </div>
+      <div class="trex" id="trAoiEx"></div>
+      <div class="trrow sub">
+        <label>X from</label><select id="trFx" class="fld"></select>
+        <label>Y from</label><select id="trFy" class="fld"></select>
+        <label>Label from</label><select id="trFlab" class="fld"></select>
+      </div>
+      <div class="trrow sub">
+        <label>Region</label>
+        <select id="trShape"><option value="circle">circle around the point</option><option value="rect">rectangle around the point</option><option value="nearest">nearest AOI</option><option value="fields">size from message fields</option></select>
+        <span id="trShapeArgs"></span>
+      </div>
+      <div class="trhint" id="trShapeHint"></div>
+    </div>
+
+    <div class="trbody" id="trPreview" style="display:none">
+      <div id="trPvWarn"></div>
+      <div id="trPvBody" class="trpv"></div>
+    </div>
+
+    <div class="trbody" id="trResults" style="display:none">
+      <div id="trResInfo" class="trhint"></div>
+      <div class="trpv" id="trResBody"></div>
+    </div>
+
+    <div class="dlgfoot">
+      <span class="sel" id="trStatus"></span>
+      <button class="btn" id="trPreviewBtn">Preview</button>
+      <button class="btn" id="trExport">Export trials ▾</button>
+      <button class="btn primary" id="trApply">Apply to table</button>
+    </div>
+    <div class="menu" id="trExpMenu" style="right:20px;bottom:56px">
+      <div class="mtitle">One row per trial</div>
+      <div class="mi" data-tfmt="csv">CSV (.csv)</div>
+      <div class="mi" data-tfmt="tsv">TSV (.tsv)</div>
+      <div class="mi" data-tfmt="html">HTML (printable)</div>
     </div>
   </div>
 </div>
@@ -371,7 +540,10 @@
 
 <div class="mask" id="mask">
   <div class="dlg">
-    <header><h2>Add EDF files</h2></header>
+    <header style="display:flex;align-items:center;justify-content:space-between">
+      <h2>Choose a folder</h2>
+      <button class="btn sm" id="fbClose" title="Close">✕</button>
+    </header>
     <div class="crumbs">
       <button class="btn sm" id="fbUp">↑ Up</button>
       <button class="btn sm" id="fbHome">Home</button>
@@ -381,9 +553,11 @@
     </div>
     <div class="fbody" id="fbList"></div>
     <div class="dlgfoot">
-      <span class="sel" id="fbSel">Nothing selected</span>
+      <label class="fbchk" title="Also include .EDF files in sub-folders"><input type="checkbox" id="fbRecursive"> include sub-folders</label>
+      <span class="sel" id="fbSel"></span>
       <button class="btn" id="fbCancel">Cancel</button>
-      <button class="btn primary" id="fbOpen">Open selected</button>
+      <button class="btn" id="fbWatch" title="Open this folder's files and keep opening new recordings as they appear">Watch this folder</button>
+      <button class="btn primary" id="fbOpen">Open this folder</button>
     </div>
   </div>
 </div>
@@ -400,10 +574,19 @@
       Exporting everything with no filters reproduces a byte-identical ASC.</p>
 
       <h3>Files &amp; tabs</h3>
-      <p>Each open recording gets a tab. <b>+</b> opens the file browser to add
-      more; <b>&#10005;</b> on a tab closes that file. Filter settings are shared
+      <p>Each open recording gets a tab. <b>+</b> opens the folder browser;
+      <b>&#10005;</b> on a tab closes that file. Filter settings are shared
       across tabs, so you can set up a view once and click between files to
       compare them.</p>
+      <p>gama works a folder at a time. Browse to the folder holding your
+      recordings and choose <b>Open this folder</b> to load every <code>.EDF</code>
+      in it (tick <i>include sub-folders</i> for a whole study tree, e.g.
+      <code>data/sub01/&hellip;</code>). Choose <b>Watch this folder</b> to do the
+      same and then keep watching: any new recording that appears is opened
+      automatically as a new tab, so you can look at data while it's being
+      collected. A "Watching&hellip;" badge appears in the header with a Stop
+      button. gama waits until a file's size stops changing before opening it, so
+      it won't grab a recording that's still being written.</p>
 
       <h3>Presets</h3>
       <dl>
@@ -541,6 +724,52 @@
           reach that path (a shared drive, say).</dd>
       </dl>
 
+      <h3>Trials &amp; areas of interest</h3>
+      <p><b>Trials &#9662;</b> in the toolbar opens a panel that cuts the recording
+      into trials and works out which stimulus each fixation and saccade landed on.
+      It reads your own messages &mdash; nothing is hard-coded to one lab's
+      conventions &mdash; and when it opens it scans the file and pre-selects the
+      most likely markers, which you can override.</p>
+      <dl>
+        <dt>Trial start / end</dt><dd>The messages that open and close a trial.
+          Anything after the marker is parsed into per-trial variables, so
+          <code>TRIAL_START index=1 block=6 type=Relational Distractor</code> gives
+          you <code>index</code>, <code>block</code> and <code>type</code>.</dd>
+        <dt>Extra variables</dt><dd>Other messages inside the trial whose fields
+          should be folded in too &mdash; a metadata line, or a result line carrying
+          accuracy and RT.</dd>
+        <dt>Inner window</dt><dd>Optionally only count events between two messages
+          within the trial (say display onset and the response), with millisecond
+          offsets if you need to shift either edge.</dd>
+        <dt>Stimuli / AOIs</dt><dd>The message that places each stimulus. Pick which
+          fields hold X, Y and the label. Fields can be read as
+          <code>key=value</code>, as whitespace positions, or with a regular
+          expression using named groups &mdash; so unusual formats aren't a dead
+          end. "Values may contain spaces" makes a value run to the next
+          <code>key=</code>, which rescues things like
+          <code>type=Relational Distractor</code>.</dd>
+        <dt>Region</dt><dd>How big an AOI is around its point: a circle of a given
+          radius (the default), a rectangle, nearest-stimulus (optionally capped at
+          a distance), or sizes read from fields in the message itself.</dd>
+      </dl>
+      <p><b>Preview</b> shows the first few parsed trials with their variables and
+      AOIs so a mis-parse is obvious before you commit. <b>Apply to table</b> adds
+      <i>Trial</i> and <i>AOI</i> columns to the main view &mdash; filterable and
+      sortable like any other column, and included in CSV/TSV/HTML row exports
+      along with the saccade's origin AOI. <b>Export trials</b> writes one row per
+      trial: your variables plus fixation and saccade counts, the first fixation
+      and first saccade <i>that landed in an AOI</i>, their latencies and rank, and
+      dwell time and fixation count per AOI label.</p>
+      <p class="trhint" style="margin-left:0">"First" skips events that hit nothing
+      &mdash; the initial central fixation, or a stray saccade &mdash; so
+      <code>first_sacc_aoi</code> is the first saccade that actually reached a
+      stimulus. <code>first_fix_rank</code> and <code>first_sacc_rank</code> say how
+      many in-window events were passed over (1 = the very first one already hit an
+      AOI), which is a quick way to spot trials that started oddly.</p>
+      <p>A finished setup can be saved as a named <i>scheme</i> and reused on every
+      participant, or shared with a colleague. Schemes live in a
+      <code>schemes</code> folder next to <code>presets</code>.</p>
+
       <h3>Collapsing recording blocks</h3>
       <p>A recording can contain many START&hellip;END blocks (often one per trial).
       <b>Collapse blocks</b> in the toolbar squeezes each block down to a single
@@ -604,6 +833,10 @@ const COLS = [
   {k:'resx', label:'ResX',  w:62,  num:true,  get:r=>r[C.resx], hidden:true},
   {k:'resy', label:'ResY',  w:62,  num:true,  get:r=>r[C.resy], hidden:true},
   {k:'val',  label:'In',    w:44,  num:true,  get:r=>r[C.val],  hidden:true},
+  {k:'trial',label:'Trial', w:58, num:true, hidden:true,
+     get:r=>(TRMAP&&TRMAP.trial[r[C.idx]]>0)?TRMAP.trial[r[C.idx]]:''},
+  {k:'aoi',  label:'AOI',   w:74, hidden:true,
+     get:r=>(TRMAP&&TRMAP.aoi[r[C.idx]])||''},
   {k:'msg',  label:'Message / Detail', w:680, msg:true, get:msgCell},
 ];
 
@@ -683,7 +916,7 @@ function buildTabs(){
     el.appendChild(t);
   });
   const add=document.createElement('div');
-  add.className='tab add'; add.textContent='+'; add.title='Add EDF files';
+  add.className='tab add'; add.textContent='+'; add.title='Open or watch a folder';
   add.onclick=()=>openBrowser();
   el.appendChild(add);
   markTabs();
@@ -781,8 +1014,8 @@ function pollProgress(id, loading){
   }, 250);
 }
 
-// ---- in-app file browser ----
-let fbCwd='', fbPicked=new Set();
+// ---- in-app folder browser ----
+let fbCwd='', fbFileCount=0;
 
 function openBrowser(){ $('mask').classList.add('open'); fbLoad(fbCwd); }
 function closeBrowser(){ $('mask').classList.remove('open'); }
@@ -800,7 +1033,8 @@ async function fbLoad(path){
   } else drv.style.display='none';
   $('fbUp').disabled=!d.parent;
   const el=$('fbList'); el.innerHTML='';
-  if(d.error){ el.innerHTML=`<div class="fitem"><span class="nm">${d.error}</span></div>`; return; }
+  if(d.error){ el.innerHTML=`<div class="fitem"><span class="nm">${d.error}</span></div>`;
+    fbFileCount=0; fbUpdateFoot(); return; }
   d.dirs.forEach(name=>{
     const row=document.createElement('div'); row.className='fitem';
     row.innerHTML=`<span class="ic">📁</span><span class="nm"></span>`;
@@ -808,28 +1042,22 @@ async function fbLoad(path){
     row.ondblclick=row.onclick=()=>fbLoad(d.path+(d.path.endsWith(d.sep)?'':d.sep)+name);
     el.appendChild(row);
   });
+  // files are shown read-only so you can see what's in the folder you'd open
   d.files.forEach(f=>{
-    const full=d.path+(d.path.endsWith(d.sep)?'':d.sep)+f.name;
-    const row=document.createElement('div'); row.className='fitem';
-    if(fbPicked.has(full)) row.classList.add('on');
-    row.innerHTML=`<input type="checkbox" ${fbPicked.has(full)?'checked':''}>
-      <span class="ic">📄</span><span class="nm"></span>
+    const row=document.createElement('div'); row.className='fitem file';
+    row.innerHTML=`<span class="ic">📄</span><span class="nm"></span>
       <span class="sz">${(f.size/1e6).toFixed(1)} MB</span>`;
     row.querySelector('.nm').textContent=f.name;
-    const cb=row.querySelector('input');
-    const toggle=(on)=>{ on?fbPicked.add(full):fbPicked.delete(full);
-      row.classList.toggle('on',on); cb.checked=on; fbCount(); };
-    cb.onclick=(e)=>{ e.stopPropagation(); toggle(cb.checked); };
-    row.onclick=()=>toggle(!cb.checked);
     el.appendChild(row);
   });
   if(!d.dirs.length && !d.files.length)
     el.innerHTML='<div class="fitem"><span class="nm">No sub-folders or .EDF files here</span></div>';
-  fbCount();
+  fbFileCount=d.files.length; fbUpdateFoot();
 }
-function fbCount(){
-  const n=fbPicked.size;
-  $('fbSel').textContent = n ? `${n} file${n>1?'s':''} selected` : 'Nothing selected';
+function fbUpdateFoot(){
+  const n=fbFileCount;
+  $('fbSel').textContent = `${n} .EDF file${n===1?'':'s'} in this folder`;
+  $('fbOpen').disabled=false; $('fbWatch').disabled=false;
 }
 $('fbUp').onclick=async()=>{
   const res=await fetch('/api/browse?path='+encodeURIComponent(fbCwd));
@@ -838,8 +1066,9 @@ $('fbUp').onclick=async()=>{
 $('fbHome').onclick=()=>fbLoad('');
 $('fbDrives').onchange=e=>fbLoad(e.target.value);
 $('fbPath').onkeydown=e=>{ if(e.key==='Enter') fbLoad(e.target.value); };
-$('fbCancel').onclick=()=>{ fbPicked.clear(); closeBrowser(); };
-$('mask').onclick=e=>{ if(e.target===$('mask')){ fbPicked.clear(); closeBrowser(); } };
+$('fbCancel').onclick=()=>closeBrowser();
+$('fbClose').onclick=()=>closeBrowser();
+$('mask').onclick=e=>{ if(e.target===$('mask')) closeBrowser(); };
 // ---- appearance (theme + text size), remembered per browser ----
 function setTheme(t){
   document.body.classList.toggle('light', t==='light');
@@ -1000,19 +1229,70 @@ $('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classLi
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if($('palMask').classList.contains('open')) closePalette();
+  else if($('trMask').classList.contains('open')) trClose();
   else if($('aboutMask').classList.contains('open')) $('aboutMask').classList.remove('open');
-  else if($('mask').classList.contains('open')){ fbPicked.clear(); closeBrowser(); }
+  else if($('mask').classList.contains('open')){ closeBrowser(); }
+  else if($('details').classList.contains('open')){ $('details').classList.remove('open'); selIdx=-1; }
 });
 $('fbOpen').onclick=async()=>{
-  const paths=[...fbPicked]; if(!paths.length){ closeBrowser(); return; }
-  fbPicked.clear(); closeBrowser();
-  const res=await fetch('/api/open',{method:'POST',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify({paths})});
+  const recursive=$('fbRecursive').checked;
+  closeBrowser();
+  const res=await fetch('/api/open_folder',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:fbCwd, recursive})});
   const d=await res.json();
   FILES=d.files; buildTabs();
+  if(!d.count){ toast('No .EDF files found in that folder'); }
   if(d.added && d.added.length) await loadFile(d.added[0]);
   else if(FILES.length && active===-1) await loadFile(FILES[0].id);
 };
+$('fbWatch').onclick=async()=>{
+  const recursive=$('fbRecursive').checked;
+  const folder=fbCwd;
+  closeBrowser();
+  const res=await fetch('/api/watch',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:folder, recursive, open_existing:true})});
+  const d=await res.json();
+  FILES=d.files; buildTabs();
+  if(d.added && d.added.length && active===-1) await loadFile(d.added[0]);
+  else if(FILES.length && active===-1) await loadFile(FILES[0].id);
+  startWatchPolling(folder);
+};
+
+// ---- watch folder: reflect auto-opened files as they appear ----
+let watchTimer=null, watchFolder=null;
+function startWatchPolling(folder){
+  watchFolder=folder;
+  showWatchBar(true);
+  if(watchTimer) clearInterval(watchTimer);
+  watchTimer=setInterval(async()=>{
+    try{
+      const before=FILES.length;
+      const files=await (await fetch('/api/files')).json();
+      if(files.length!==before){ FILES=files; buildTabs();
+        if(files.length>before) toast('New recording opened'); }
+    }catch(e){}
+  }, 3000);
+}
+async function stopWatching(){
+  if(watchTimer){ clearInterval(watchTimer); watchTimer=null; }
+  showWatchBar(false); watchFolder=null;
+  try{ const d=await (await fetch('/api/watch',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'stop'})})).json();
+    FILES=d.files; buildTabs(); }catch(e){}
+}
+function showWatchBar(on){
+  let bar=$('watchbar');
+  if(on){
+    if(!bar){ bar=document.createElement('div'); bar.id='watchbar'; bar.className='watchbar';
+      document.querySelector('header').appendChild(bar); }
+    bar.innerHTML=`<span class="dot"></span> Watching <b>${escapeHtml(watchFolder||'')}</b> `+
+      `<button class="btn sm" id="watchStop">Stop</button>`;
+    $('watchStop').onclick=stopWatching;
+    bar.style.display='flex';
+  } else if(bar){ bar.style.display='none'; }
+}
 
 function buildSidebar(){
   const gel=$('groups'); gel.innerHTML='';
@@ -1350,7 +1630,7 @@ function isSameBlockStart(prev, blk){
   // true if prev display entry is a real row in the same block (so `r` isn't the first)
   return prev && !prev.sum && prev[C.block]===blk;
 }
-function escapeHtml(s){return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
 
 scroll.addEventListener('scroll',render);
 window.addEventListener('resize',render);
@@ -1467,8 +1747,10 @@ function showDetails(idx){
     `<input type="text" id="noteInp" placeholder="note (saved next to the .EDF)" `+
     `value="${escapeHtml(nv.note)}">`+
     `<span class="notehint" id="noteHint"></span></div>`;
-  det.innerHTML=noteBox+t+`<div class="raw">${escapeHtml(raw)}</div>`;
+  det.innerHTML='<button class="detclose" id="detClose" title="Close (Esc)">✕</button>'
+    +noteBox+t+`<div class="raw">${escapeHtml(raw)}</div>`;
   det.classList.add('open');
+  $('detClose').onclick=()=>{ det.classList.remove('open'); selIdx=-1; };
   const chk=$('flagChk'), inp=$('noteInp');
   chk.onchange=()=>{ setNote(idx, chk.checked, inp.value);
     $('noteHint').textContent='saved'; setTimeout(()=>{const h=$('noteHint');if(h)h.textContent='';},900); };
@@ -1575,6 +1857,326 @@ $('savePreset').onclick=async()=>{
   refreshPresets();
 };
 
+// ---- trials & AOI panel ---------------------------------------------------
+// The panel drives the server-side analysis: it collects a "scheme" (which
+// messages open/close a trial, which carry variables, which place stimuli) and
+// posts it for preview or for a full run. Nothing is hard-coded to one message
+// convention; the dropdowns are filled from whatever this recording contains.
+let SUG=null;                 // suggestion payload for the active file
+let TRVARS=[];                // extra variable messages chosen by the user
+let TRMAP=null;               // {trial:[], aoi:[], from:[]} keyed by row idx
+let TRRES=null;               // last full analysis result
+let TRSCHEMES={};
+
+function trOpen(){
+  if(active<0||!META){ toast('Open a recording first'); return; }
+  $('trMask').classList.add('open');
+  if(!SUG) trLoadSuggestions();
+  trRefreshSchemes();
+}
+function trClose(){ $('trMask').classList.remove('open'); }
+
+async function trLoadSuggestions(){
+  $('trStatus').textContent='Scanning messages…';
+  try{
+    const r=await fetch('/api/trials/suggest',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({file:active})});
+    SUG=await r.json();
+  }catch(e){ $('trStatus').textContent='Could not scan messages'; return; }
+  const cands=SUG.candidates||[];
+  const fill=(id,sel)=>{
+    const el=$(id); el.innerHTML='<option value="">— none —</option>';
+    cands.forEach(c=>{ const o=document.createElement('option');
+      o.value=c.name; o.textContent=`${c.name}  (${c.count.toLocaleString()})`;
+      if(c.name===sel) o.selected=true; el.appendChild(o); });
+  };
+  const R=SUG.roles||{};
+  fill('trStart',R.start); fill('trEnd',R.end); fill('trAoi',R.aoi);
+  fill('trWinFrom',R.window_from); fill('trWinTo',R.window_to); fill('trVarPick',null);
+  if(R.window_from&&R.window_to) $('trWinOn').checked=true;
+  $('trStatus').textContent=`${cands.length} message types found`;
+  trSyncExamples();
+}
+
+function trCand(name){ return (SUG&&SUG.candidates||[]).find(c=>c.name===name); }
+function trMarkerOf(selId,customId){
+  const custom=$(customId).value.trim();
+  return custom || $(selId).value || '';
+}
+function trPayloadExample(name){
+  const c=trCand(name); if(!c) return '';
+  return c.example.slice(name.length).trim();
+}
+function trFieldsFor(name,greedy){
+  const c=trCand(name); if(!c) return [];
+  return greedy ? (c.fields||[]) : (c.fields_strict||[]);
+}
+function trShowEx(elId,name){
+  const el=$(elId); const c=trCand(name);
+  if(!c){ el.textContent=''; return; }
+  el.innerHTML='e.g. <b>'+escapeHtml(c.example.slice(0,110))+'</b>';
+}
+
+function trSyncExamples(){
+  trShowEx('trStartEx',trMarkerOf('trStart','trStartCustom'));
+  trShowEx('trEndEx',trMarkerOf('trEnd','trEndCustom'));
+  const aoi=trMarkerOf('trAoi','trAoiCustom');
+  trShowEx('trAoiEx',aoi);
+  // field pickers follow the chosen parse mode
+  const mode=$('trParseMode').value, greedy=$('trGreedy').checked;
+  $('trRegexRow').style.display = mode==='regex' ? 'flex' : 'none';
+  let fields=[];
+  if(mode==='positional'){
+    const ex=trPayloadExample(aoi);
+    fields=ex.split(/\s+/).map((t,i)=>String(i)).filter(x=>x!=='');
+  } else if(mode==='regex'){
+    const m=($('trAoiRegex').value.match(/\(\?<([A-Za-z_]\w*)>/g)||[])
+      .map(s=>s.slice(3,-1));
+    fields=m;
+  } else {
+    fields=trFieldsFor(aoi,greedy);
+  }
+  const setF=(id,guess)=>{
+    const el=$(id), cur=el.value;
+    el.innerHTML='<option value="">—</option>';
+    fields.forEach(f=>{ const o=document.createElement('option');
+      o.value=f; o.textContent=f; el.appendChild(o); });
+    if(fields.includes(cur)) el.value=cur;
+    else if(guess && fields.includes(guess)) el.value=guess;
+  };
+  setF('trFx','x'); setF('trFy','y');
+  const labGuess=['kind','label','name','type','id','stim'].find(g=>fields.includes(g));
+  setF('trFlab',labGuess);
+  trShapeArgs();
+}
+
+function trShapeArgs(){
+  const t=$('trShape').value, el=$('trShapeArgs'); let h='';
+  if(t==='circle') h=`radius <input type="number" id="trRadius" value="${trOpt.radius}" style="width:80px"> px`;
+  else if(t==='rect') h=`w <input type="number" id="trW" value="${trOpt.w}" style="width:70px"> h <input type="number" id="trH" value="${trOpt.h}" style="width:70px"> px`;
+  else if(t==='nearest') h=`within <input type="number" id="trMaxD" value="${trOpt.maxd}" style="width:80px"> px (0 = no limit)`;
+  else h=`w field <select id="trFw" class="fld"></select> h field <select id="trFh" class="fld"></select> r field <select id="trFr" class="fld"></select>`;
+  el.innerHTML=h;
+  const hints={circle:'A fixation counts as inside if it falls within the radius of a stimulus centre. Closest wins when circles overlap.',
+    rect:'A rectangle of this size is centred on each stimulus position.',
+    nearest:'Every fixation is assigned to the closest stimulus, optionally capped at a maximum distance.',
+    fields:'Sizes are read from fields in the stimulus message itself (e.g. w=/h= or r=).'};
+  $('trShapeHint').textContent=hints[t]||'';
+  if(t==='fields'){
+    const greedy=$('trGreedy').checked;
+    const fields=trFieldsFor(trMarkerOf('trAoi','trAoiCustom'),greedy);
+    ['trFw','trFh','trFr'].forEach(id=>{ const s=$(id); if(!s) return;
+      s.innerHTML='<option value="">—</option>';
+      fields.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;s.appendChild(o);}); });
+  }
+  ['trRadius','trW','trH','trMaxD'].forEach(id=>{ const e=$(id);
+    if(e) e.oninput=()=>{ trOpt.radius=+($('trRadius')?$('trRadius').value:trOpt.radius)||trOpt.radius;
+      trOpt.w=+($('trW')?$('trW').value:trOpt.w)||trOpt.w;
+      trOpt.h=+($('trH')?$('trH').value:trOpt.h)||trOpt.h;
+      trOpt.maxd=+($('trMaxD')?$('trMaxD').value:trOpt.maxd)||trOpt.maxd; }; });
+}
+const trOpt={radius:100,w:120,h:120,maxd:150};
+
+function trBuildScheme(){
+  const mk=(sel,custom,mode)=>{
+    const m=trMarkerOf(sel,custom); if(!m) return null;
+    return {match:m, match_mode:$(mode).value, mode:'kv', greedy:true};
+  };
+  const aoiName=trMarkerOf('trAoi','trAoiCustom');
+  const shapeType=$('trShape').value;
+  const shape={type:shapeType};
+  if(shapeType==='circle') shape.radius=+($('trRadius')||{}).value||trOpt.radius;
+  if(shapeType==='rect'){ shape.w=+($('trW')||{}).value||trOpt.w; shape.h=+($('trH')||{}).value||trOpt.h; }
+  if(shapeType==='nearest') shape.max_distance=+($('trMaxD')||{}).value||trOpt.maxd;
+  if(shapeType==='fields') shape.radius=trOpt.radius;
+  const s={
+    start: mk('trStart','trStartCustom','trStartMode'),
+    end:   mk('trEnd','trEndCustom','trEndMode'),
+    vars:  TRVARS.map(v=>({match:v, match_mode:'prefix', mode:'kv', greedy:true})),
+    window:{enabled:$('trWinOn').checked,
+      from:{match:$('trWinFrom').value, match_mode:'prefix'},
+      to:{match:$('trWinTo').value, match_mode:'prefix'},
+      offset_start:+$('trWinOffA').value||0, offset_end:+$('trWinOffB').value||0},
+    aoi: aoiName ? {match:aoiName, match_mode:$('trAoiMode').value,
+      mode:$('trParseMode').value, greedy:$('trGreedy').checked,
+      regex:$('trAoiRegex').value||null,
+      x:$('trFx').value, y:$('trFy').value, label:$('trFlab').value,
+      w:($('trFw')||{}).value||null, h:($('trFh')||{}).value||null,
+      r:($('trFr')||{}).value||null, shape} : null,
+  };
+  return s;
+}
+function trApplyScheme(s){
+  if(!s) return;
+  const setMk=(sel,custom,mode,spec)=>{
+    if(!spec){ $(sel).value=''; $(custom).value=''; return; }
+    const opts=[...$(sel).options].map(o=>o.value);
+    if(opts.includes(spec.match)){ $(sel).value=spec.match; $(custom).value=''; }
+    else { $(sel).value=''; $(custom).value=spec.match; }
+    if(mode) $(mode).value=spec.match_mode||'prefix';
+  };
+  setMk('trStart','trStartCustom','trStartMode',s.start);
+  setMk('trEnd','trEndCustom','trEndMode',s.end);
+  TRVARS=(s.vars||[]).map(v=>v.match); trChips();
+  const w=s.window||{};
+  $('trWinOn').checked=!!w.enabled;
+  if(w.from) $('trWinFrom').value=w.from.match||'';
+  if(w.to) $('trWinTo').value=w.to.match||'';
+  $('trWinOffA').value=w.offset_start||''; $('trWinOffB').value=w.offset_end||'';
+  const a=s.aoi||null;
+  setMk('trAoi','trAoiCustom','trAoiMode',a);
+  if(a){
+    $('trParseMode').value=a.mode||'kv';
+    $('trGreedy').checked=!!a.greedy;
+    $('trAoiRegex').value=a.regex||'';
+    const sh=a.shape||{}; $('trShape').value=sh.type||'circle';
+    trOpt.radius=sh.radius||trOpt.radius; trOpt.w=sh.w||trOpt.w;
+    trOpt.h=sh.h||trOpt.h; trOpt.maxd=sh.max_distance||trOpt.maxd;
+    trSyncExamples();
+    if($('trFx')) $('trFx').value=a.x||'';
+    if($('trFy')) $('trFy').value=a.y||'';
+    if($('trFlab')) $('trFlab').value=a.label||'';
+  } else trSyncExamples();
+}
+
+function trChips(){
+  const el=$('trVarChips'); el.innerHTML='';
+  TRVARS.forEach(v=>{
+    const c=document.createElement('span'); c.className='trchip';
+    c.innerHTML=`${escapeHtml(v)} <span title="remove">✕</span>`;
+    c.querySelector('span').onclick=()=>{ TRVARS=TRVARS.filter(x=>x!==v); trChips(); };
+    el.appendChild(c);
+  });
+}
+
+async function trRun(preview){
+  const scheme=trBuildScheme();
+  if(!scheme.start){ toast('Choose a trial-start message first'); return null; }
+  $('trStatus').textContent = preview?'Previewing…':'Analysing…';
+  const body={file:active, scheme};
+  if(preview){ body.preview=true; body.limit=8; }
+  try{
+    const r=await fetch('/api/trials/run',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const res=await r.json();
+    if(res.error){ $('trStatus').textContent=res.error; return null; }
+    return res;
+  }catch(e){ $('trStatus').textContent='Analysis failed'; return null; }
+}
+
+function trWarnBox(res){
+  const w=res.warnings||[];
+  if(!w.length) return '';
+  return `<div class="trwarn"><b>${w.length} note${w.length>1?'s':''}:</b> `+
+    escapeHtml(w.slice(0,5).join('; '))+'</div>';
+}
+
+async function trDoPreview(){
+  const res=await trRun(true); if(!res) return;
+  trTab('preview');
+  const n=res.n_trials;
+  let h=trWarnBox(res);
+  h+=`<div class="trhint" style="margin-left:0">Showing the first ${res.trials_preview.length} of ${n.toLocaleString()} trials found.</div>`;
+  res.trials_preview.forEach(t=>{
+    const vars=Object.entries(t.vars).map(([k,v])=>`${escapeHtml(k)}=<b>${escapeHtml(v)}</b>`).join('  ');
+    const aois=t.aois.map(a=>`${escapeHtml(a.label)}(${a.x},${a.y})`).join('  ');
+    h+=`<div class="tcard"><h4>Trial ${t.n} · ${t.t_start}–${t.t_end}`+
+      (t.win[0]?` · window ${t.win[0]}–${t.win[1]}`:'')+`</h4>`+
+      `<div class="kvs">${vars||'<i>no variables parsed</i>'}</div>`+
+      `<div class="kvs">${t.n_aoi} AOI: ${escapeHtml(aois)||'<i>none</i>'}</div></div>`;
+  });
+  $('trPvBody').innerHTML=h;
+  $('trStatus').textContent=`${n.toLocaleString()} trials`;
+}
+
+async function trDoApply(){
+  const res=await trRun(false); if(!res) return;
+  TRRES=res;
+  TRMAP={trial:res.row_trial, aoi:res.row_aoi, from:res.row_aoi_from};
+  // reveal the Trial / AOI columns
+  COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
+  buildColMenu(); buildHead(); apply();
+  trShowResults(res);
+  trTab('results');
+  $('trStatus').innerHTML=`<span class="trok">Applied — ${res.n_trials.toLocaleString()} trials, `+
+    `${res.matched_fix.toLocaleString()} events matched to an AOI</span>`;
+  toast(`${res.n_trials.toLocaleString()} trials applied`);
+}
+
+function trShowResults(res){
+  const cols=res.summary.columns, rows=res.summary.rows;
+  $('trResInfo').textContent=
+    `${res.n_trials.toLocaleString()} trials · ${cols.length} columns · `+
+    `AOI labels: ${(res.labels||[]).join(', ')||'none'} · showing first 25 rows`;
+  let h='<table><thead><tr>'+cols.map(c=>`<th>${escapeHtml(c)}</th>`).join('')+'</tr></thead><tbody>';
+  rows.slice(0,25).forEach(r=>{ h+='<tr>'+r.map(v=>`<td>${escapeHtml(v===null?'':v)}</td>`).join('')+'</tr>'; });
+  h+='</tbody></table>';
+  $('trResBody').innerHTML=h;
+}
+
+function trTab(name){
+  document.querySelectorAll('.trtab').forEach(t=>t.classList.toggle('active',t.dataset.t===name));
+  $('trSetup').style.display   = name==='setup'?'block':'none';
+  $('trPreview').style.display = name==='preview'?'block':'none';
+  $('trResults').style.display = name==='results'?'block':'none';
+}
+
+async function trRefreshSchemes(){
+  try{ TRSCHEMES=await (await fetch('/api/schemes')).json(); }catch(e){ TRSCHEMES={}; }
+  const el=$('trScheme'); const cur=el.value;
+  el.innerHTML='<option value="">— scheme —</option>';
+  Object.keys(TRSCHEMES).forEach(n=>{ const o=document.createElement('option');
+    o.value=n; o.textContent=n; el.appendChild(o); });
+  if(TRSCHEMES[cur]) el.value=cur;
+}
+
+// wiring
+$('trClose').onclick=trClose;
+$('trMask').onclick=e=>{ if(e.target===$('trMask')) trClose(); };
+document.querySelectorAll('.trtab').forEach(t=>t.onclick=()=>trTab(t.dataset.t));
+['trStart','trEnd','trAoi','trParseMode','trGreedy','trAoiRegex','trStartCustom',
+ 'trEndCustom','trAoiCustom'].forEach(id=>{
+  const el=$(id); if(!el) return;
+  el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',trSyncExamples);
+});
+$('trShape').onchange=trShapeArgs;
+$('trVarAdd').onclick=()=>{ const v=$('trVarPick').value;
+  if(v && !TRVARS.includes(v)){ TRVARS.push(v); trChips(); } };
+$('trPreviewBtn').onclick=trDoPreview;
+$('trApply').onclick=trDoApply;
+$('trScheme').onchange=e=>{ const s=TRSCHEMES[e.target.value]; if(s) trApplyScheme(s); };
+$('trSave').onclick=async()=>{
+  const name=prompt('Save this scheme as:', $('trScheme').value||'my experiment');
+  if(!name) return;
+  await fetch('/api/schemes',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name, scheme:trBuildScheme()})});
+  await trRefreshSchemes(); $('trScheme').value=name; toast('Scheme saved');
+};
+$('trDel').onclick=async()=>{
+  const n=$('trScheme').value; if(!n) return;
+  await fetch('/api/schemes',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'delete', name:n})});
+  await trRefreshSchemes(); toast('Scheme deleted');
+};
+$('trExport').onclick=e=>{ e.stopPropagation(); $('trExpMenu').classList.toggle('open'); };
+$('trExpMenu').querySelectorAll('.mi').forEach(mi=>mi.onclick=async()=>{
+  $('trExpMenu').classList.remove('open');
+  const scheme=trBuildScheme();
+  if(!scheme.start){ toast('Choose a trial-start message first'); return; }
+  const fmt=mi.dataset.tfmt;
+  $('trStatus').textContent='Building trial table…';
+  try{
+    // post() returns {data, cd} — the shape download() expects, and it carries
+    // the server's filename (…_trials.csv) through Content-Disposition.
+    download(await post('/api/trials/export',{file:active, scheme, format:fmt}),
+             'trials.'+fmt);
+    $('trStatus').textContent='Exported';
+  }catch(err){
+    console.error('trial export failed',err);
+    $('trStatus').textContent='Export failed — see the browser console';
+  }
+});
+
 // ---- command palette (Ctrl+K) ----
 // Actions reuse the same functions the buttons call. `on` guards items that
 // only make sense when a file is loaded.
@@ -1584,7 +2186,9 @@ function paletteActions(){
   const add=(name,cat,run,opts={})=>A.push({name,cat,run,key:opts.key,
     enabled:opts.always?true:(opts.needFile===false?true:haveFile)});
   // files
-  add('Add EDF files…','File',()=>openBrowser(),{always:true,key:'Ctrl+O'});
+  add('Open a folder…','File',()=>openBrowser(),{always:true,key:'Ctrl+O'});
+  add('Watch a folder for new recordings…','File',()=>openBrowser(),{always:true});
+  if(watchTimer) add('Stop watching folder','File',()=>stopWatching(),{always:true});
   if(haveFile) add('Close current file','File',()=>closeFile(active),{key:'Alt+W'});
   FILES.forEach((f,i)=>add('Switch to: '+(RENAMES[f.path]||f.name),'Tab',
     ()=>loadFile(f.id),{always:true,key:i<9?('Alt+'+(i+1)):undefined}));
@@ -1599,6 +2203,8 @@ function paletteActions(){
   add('Focus search','Filter',()=>{$('search').focus();$('search').select();},{always:true,key:'Ctrl+F'});
   add('Toggle per-column filters','Filter',()=>$('filtBtn').click(),{always:true});
   add('Collapse / expand recording blocks','View',()=>toggleCollapseAll(),{always:true});
+  add('Trials & areas of interest…','Trials',()=>trOpen());
+  add('Export one row per trial (CSV)','Trials',()=>{trOpen();$('trExpMenu').classList.add('open');});
   add('Reset all filters (show everything)','Filter',
     ()=>document.querySelector('[data-preset="reset"]').click());
   add('Preset: Events only','Filter',()=>document.querySelector('[data-preset="events"]').click());
@@ -1712,9 +2318,11 @@ $('filtBtn').onclick=()=>{
   if(on){ const first=$('cfrow').querySelector('input'); if(first) first.focus(); }
 };
 $('collapseBtn').onclick=()=>toggleCollapseAll();
+$('trialsBtn').onclick=()=>trOpen();
 document.addEventListener('click',e=>{
   if(!e.target.closest('#colmenu')&&!e.target.closest('#colsBtn')) $('colmenu').classList.remove('open');
   if(!e.target.closest('#expmenu')&&!e.target.closest('#expBtn')) $('expmenu').classList.remove('open');
+  if(!e.target.closest('#trExpMenu')&&!e.target.closest('#trExport')) $('trExpMenu').classList.remove('open');
 });
 
 // ---- export ----

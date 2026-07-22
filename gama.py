@@ -27,7 +27,7 @@ import sys
 import ctypes as C
 from decimal import Decimal, ROUND_HALF_UP
 
-__version__ = "1.1.1"
+__version__ = "1.0.0"
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,9 @@ EYE_LETTER = {0: "L", 1: "R", 2: "L"}
 EYE_WORD = {0: "LEFT", 1: "RIGHT", 2: "BINOCULAR"}
 
 DEFAULT_CONVERTED_FROM = (
-    "** CONVERTED FROM GAMA " + __version__
+    "** CONVERTED FROM C:\\Users\\Canaan\\PycharmProjects\\Landolt_Exp\\data\\"
+    "AP_2026_05_19_13_58\\AP_2026_05_19_13_58.EDF using edfapi 4.4.1 Win32  "
+    "EyeLink Dataviewer Subcomponent Mar 19 2024 on Sat May 23 22:15:57 2026"
 )
 
 SP = " "  # the literal trailing space edf2asc writes after START/END times
@@ -991,13 +993,16 @@ def export_asc(records, indices):
 
 
 def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
-                 notes=None):
+                 notes=None, trials=None):
     import csv
     notes = notes or {}
     has_notes = bool(notes)
+    has_tr = bool(trials)
     buf = StringIO()
     w = csv.writer(buf, delimiter=delimiter, lineterminator="\n")
     header = list(EXPORT_COLUMNS)
+    if has_tr:
+        header += ["trial", "aoi", "aoi_from"]
     if has_notes:
         header += ["flagged", "note"]
     w.writerow(header)
@@ -1016,6 +1021,11 @@ def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
                d["dur"], d["eye"], d["x1"], d["y1"], d["x2"], d["y2"],
                d["amp"], d["vel"], d["pupil"], d["resx"], d["resy"],
                d["val"], msg]
+        if has_tr:
+            tn = trials["row_trial"][i] if i < len(trials["row_trial"]) else -1
+            row += [tn if tn > 0 else "",
+                    trials["row_aoi"][i] if i < len(trials["row_aoi"]) else "",
+                    trials["row_aoi_from"][i] if i < len(trials["row_aoi_from"]) else ""]
         if has_notes:
             nv = notes.get(str(i))
             if nv:
@@ -1056,11 +1066,14 @@ def _esc(v):
 
 
 def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
-                notes=None):
+                notes=None, trials=None):
     """A standalone, self-contained HTML copy of the current view (printable)."""
     notes = notes or {}
     has_notes = bool(notes)
+    has_tr = bool(trials)
     cols = list(EXPORT_COLUMNS)
+    if has_tr:
+        cols += ["trial", "aoi", "aoi_from"]
     if has_notes:
         cols += ["flagged", "note"]
     head = "".join(f"<th>{_esc(c)}</th>" for c in cols)
@@ -1081,6 +1094,11 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
                  d["pupil"], d["resx"], d["resy"], d["val"]]
         tds = "".join(f"<td>{_esc(c)}</td>" for c in cells)
         tds += f'<td class="msg">{_esc(msg)}</td>'
+        if has_tr:
+            tn = trials["row_trial"][i] if i < len(trials["row_trial"]) else -1
+            tds += "<td>%s</td>" % _esc(tn if tn > 0 else "")
+            tds += "<td>%s</td>" % _esc(trials["row_aoi"][i] if i < len(trials["row_aoi"]) else "")
+            tds += "<td>%s</td>" % _esc(trials["row_aoi_from"][i] if i < len(trials["row_aoi_from"]) else "")
         nv = notes.get(str(i)) if has_notes else None
         if has_notes:
             flag_mark = "\u2691" if (nv and nv.get("flag")) else ""
@@ -1098,19 +1116,20 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
 
 def export_bytes(entry, indices, fmt, relative):
     notes = getattr(entry, "notes", None) or None
+    trials = getattr(entry, "trials", None) or None
     if fmt == "asc":
         body, _ = export_asc(entry.records, indices)
         return body, ".asc"
     if fmt == "tsv":
         body, _ = export_table(entry.parsed, entry.rows, indices, "\t",
-                               relative, entry.tmin, notes)
+                               relative, entry.tmin, notes, trials)
         return body, ".tsv"
     if fmt == "html":
         body, _ = export_html(entry.parsed, entry.rows, indices, relative,
-                              entry.tmin, entry.name, notes)
+                              entry.tmin, entry.name, notes, trials)
         return body, ".html"
     body, _ = export_table(entry.parsed, entry.rows, indices, ",",
-                           relative, entry.tmin, notes)
+                           relative, entry.tmin, notes, trials)
     return body, ".csv"
 
 
@@ -1120,6 +1139,11 @@ def export_bytes(entry, indices, fmt, relative):
 def _preset_slug(name):
     slug = re.sub(r"[^\w.-]+", "_", name).strip("_")
     return slug or "preset"
+
+
+def _schemes_dir(presets_dir):
+    """Trial/AOI schemes live beside the presets folder."""
+    return os.path.join(os.path.dirname(os.path.abspath(presets_dir)), "schemes")
 
 
 def _load_presets(dir_path):
@@ -1197,6 +1221,7 @@ class FileEntry:
         self.tmin = self.tmax = 0
         self.records = self.parsed = self.rows = self.payload_gz = None
         self.notes = {}            # line_index(str) -> {"flag":bool,"note":str}
+        self.trials = None         # cached trial/AOI analysis for exports
 
 
 def _ensure_parsed(entry, converted_from_line):
@@ -1360,7 +1385,625 @@ def browse_dir(path):
             "home": os.path.expanduser("~")}
 
 
-def make_handler(reg, converted_from_line, presets_dir):
+def list_edfs(folder, recursive=False):
+    """Absolute paths of .EDF files in a folder (optionally recursing)."""
+    out = []
+    folder = os.path.abspath(folder)
+    if not os.path.isdir(folder):
+        return out
+    try:
+        if recursive:
+            for root, dirs, files in os.walk(folder):
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                for n in files:
+                    if _is_edf(n):
+                        out.append(os.path.join(root, n))
+        else:
+            with os.scandir(folder) as it:
+                for e in it:
+                    if e.is_file() and _is_edf(e.name):
+                        out.append(os.path.join(folder, e.name))
+    except OSError:
+        pass
+    out.sort(key=str.lower)
+    return out
+
+
+class Watcher:
+    """Polls one folder for new .EDF files and adds them to the registry.
+
+    edfapi/eyelinkio give no file-change events, and portable OS watch APIs vary,
+    so a simple periodic scan is the robust choice.  A brief size-stability check
+    avoids opening a recording that is still being written.
+    """
+
+    def __init__(self, reg):
+        self.reg = reg
+        self.folder = None
+        self.recursive = False
+        self._known = {}          # path -> last seen size
+        self._pending = {}        # path -> size, waiting to stabilise
+        self._thread = None
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+        self.last_added = []      # paths added on the most recent scan
+
+    def status(self):
+        with self._lock:
+            return {"watching": bool(self.folder), "folder": self.folder,
+                    "recursive": self.recursive, "known": len(self._known)}
+
+    def start(self, folder, recursive):
+        folder = os.path.abspath(folder)
+        with self._lock:
+            self.folder = folder
+            self.recursive = bool(recursive)
+            # seed known set with whatever is already open / present so we only
+            # auto-open files that appear AFTER watching begins
+            self._known = {}
+            self._pending = {}
+        if self._thread is None or not self._thread.is_alive():
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
+
+    def stop(self):
+        with self._lock:
+            self.folder = None
+        self._stop.set()
+
+    def _run(self):
+        # first pass: record existing files as "known" without opening them
+        with self._lock:
+            folder, recursive = self.folder, self.recursive
+        if folder:
+            for p in list_edfs(folder, recursive):
+                try:
+                    self._known[p] = os.path.getsize(p)
+                except OSError:
+                    self._known[p] = 0
+        while not self._stop.wait(2.0):
+            with self._lock:
+                folder, recursive = self.folder, self.recursive
+            if not folder:
+                break
+            try:
+                current = list_edfs(folder, recursive)
+            except OSError:
+                continue
+            for p in current:
+                if p in self._known:
+                    continue
+                try:
+                    sz = os.path.getsize(p)
+                except OSError:
+                    continue
+                # wait one cycle for the size to settle (still-recording guard)
+                if self._pending.get(p) == sz and sz > 0:
+                    self.reg.add(p)
+                    self._known[p] = sz
+                    self._pending.pop(p, None)
+                    print(f"[watch] opened new file: {os.path.basename(p)}",
+                          flush=True)
+                else:
+                    self._pending[p] = sz
+
+
+# ---------------------------------------------------------------------------
+# Trial segmentation and area-of-interest (AOI) analysis.
+#
+# Everybody labels their experiment messages differently, so nothing here is
+# hard-coded to one convention.  A "scheme" describes which messages open and
+# close a trial, which messages carry variables, and which messages place the
+# stimuli, together with how to pull fields out of each.  Three parsing modes
+# cover the common cases:
+#
+#   kv         key=value pairs.  With ``greedy`` (the default) a value runs to
+#              the next ``key=``, so "type=Relational Distractor" survives
+#              intact; without it, values are single tokens and anything else
+#              becomes a positional field (_0, _1, ...).
+#   positional whitespace-separated tokens addressed by index ("0", "1", ...)
+#   regex      a regular expression; named groups become fields.
+# ---------------------------------------------------------------------------
+
+_KEY_RE = re.compile(r'(?:(?<=\s)|^)([A-Za-z_][\w.\-]*)=')
+
+
+def _isnum(s):
+    try:
+        float(s)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _fnum(s, default=None):
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_msg_fields(text, mode="kv", greedy=True, regex=None):
+    """Parse a message body into an ordered {field: value} mapping."""
+    text = (text or "").strip()
+    if not text:
+        return {}
+    if mode == "regex":
+        if not regex:
+            return {}
+        try:
+            m = re.search(regex, text)
+        except re.error:
+            return {}
+        if not m:
+            return {}
+        out = {k: (v if v is not None else "") for k, v in m.groupdict().items()}
+        for i, g in enumerate(m.groups()):
+            out.setdefault(str(i + 1), g if g is not None else "")
+        return out
+    if mode == "positional":
+        return {str(i): t for i, t in enumerate(text.split())}
+
+    out = {}
+    if greedy:
+        keys = list(_KEY_RE.finditer(text))
+        if keys:
+            for i, t in enumerate(text[:keys[0].start()].split()):
+                out["_%d" % i] = t
+            for n, m in enumerate(keys):
+                end = keys[n + 1].start() if n + 1 < len(keys) else len(text)
+                out[m.group(1)] = text[m.end():end].strip()
+            return out
+    bare = 0
+    for tok in text.split():
+        k, sep, v = tok.partition("=")
+        if sep and k and _KEY_RE.fullmatch(k + "="):
+            out[k] = v
+        else:
+            out["_%d" % bare] = tok
+            bare += 1
+    return out
+
+
+def _spec_fields(spec, body):
+    """Fields for one message body, using that spec's parsing options."""
+    return parse_msg_fields(body,
+                            (spec or {}).get("mode", "kv"),
+                            bool((spec or {}).get("greedy", True)),
+                            (spec or {}).get("regex"))
+
+
+def _make_msg_matcher(spec):
+    """A predicate over the message body, or None if the spec is blank."""
+    pat = ((spec or {}).get("match") or "").strip()
+    if not pat:
+        return None
+    how = (spec or {}).get("match_mode", "prefix")
+    if how == "regex":
+        try:
+            r = re.compile(pat)
+        except re.error:
+            return None
+        return lambda b: bool(r.search(b))
+    if how == "contains":
+        low = pat.lower()
+        return lambda b: low in b.lower()
+    if how == "exact":
+        return lambda b: b.strip() == pat
+    return lambda b: b.startswith(pat)
+
+
+def _body_after(body, spec):
+    """Drop the marker itself so only the trailing payload is parsed."""
+    pat = ((spec or {}).get("match") or "").strip()
+    how = (spec or {}).get("match_mode", "prefix")
+    if pat and how == "prefix" and body.startswith(pat):
+        return body[len(pat):].strip()
+    return body
+
+
+# ---------------------------------------------------------------------------
+# Suggestions: what do the messages in this recording look like?
+# ---------------------------------------------------------------------------
+# Hints are ranked: an earlier entry is a stronger signal than a later one, so
+# TRIAL_END beats TRIAL_RESULT for the trial-end role even though both look
+# plausible, and DISPLAY_ONSET beats fix_onset for the start of an inner window.
+_START_HINTS = ("trial_start", "trialstart", "start_trial", "trialid",
+                "start", "begin")
+_END_HINTS = ("trial_end", "trialend", "end_trial", "trial_result",
+              "end", "stop", "result")
+_WIN_FROM_HINTS = ("display_onset", "stim_onset", "stimulus_onset", "display",
+                   "stim", "onset")
+_WIN_TO_HINTS = ("response", "resp", "keypress", "button", "key", "answer")
+_AOI_HINTS = ("stim_pos", "stim", "iarea", "aoi", "pos", "target", "obj")
+
+
+def _hint_score(name, hints):
+    low = name.lower()
+    for i, h in enumerate(hints):
+        if h in low:
+            return 100 - i * 6
+    return 0
+
+
+def suggest_markers(rows, parsed, top=40):
+    """Rank experiment-message prefixes as candidate trial / AOI markers."""
+    from collections import Counter, defaultdict
+    counts = Counter()
+    examples = {}
+    times = defaultdict(list)
+    for i, r in enumerate(rows):
+        if r[I_GRP] != "MSG" or (r[I_MK] or "experiment") != "experiment":
+            continue
+        body = (parsed[i]["msg"] or "").strip()
+        if not body:
+            continue
+        tok = body.split()[0]
+        counts[tok] += 1
+        examples.setdefault(tok, body)
+        t = r[I_START]
+        if isinstance(t, int):
+            times[tok].append(t)
+
+    cands = []
+    for tok, n in counts.most_common(top):
+        ex = examples[tok]
+        payload = ex[len(tok):].strip()
+        greedy = _spec_fields({"greedy": True}, payload)
+        strict = _spec_fields({"greedy": False}, payload)
+        ts = times[tok]
+        reg = None
+        if len(ts) > 3:
+            gaps = [b - a for a, b in zip(ts, ts[1:]) if b >= a]
+            if gaps:
+                mean = sum(gaps) / len(gaps)
+                if mean:
+                    var = sum((g - mean) ** 2 for g in gaps) / len(gaps)
+                    reg = round((var ** 0.5) / mean, 3)
+        numeric = [k for k, v in strict.items() if _isnum(v)]
+        cands.append({
+            "name": tok, "count": n, "example": ex,
+            "fields": list(greedy.keys()),
+            "fields_strict": list(strict.keys()),
+            "numeric": numeric,
+            "regularity": reg,
+        })
+
+    def pick(hints, extra=None, exclude=()):
+        best, score = None, 0
+        for c in cands:
+            if c["name"] in exclude:
+                continue
+            s = _hint_score(c["name"], hints)
+            if c["regularity"] is not None and c["regularity"] < 0.6:
+                s += 5
+            s += min(c["count"], 5000) / 1000.0
+            if extra:
+                s += extra(c)
+            if s > score:
+                best, score = c["name"], s
+        return best
+
+    def aoi_bonus(c):
+        s = 0
+        low = [f.lower() for f in c["fields_strict"]]
+        if "x" in low and "y" in low:
+            s += 60
+        if len(c["numeric"]) >= 2:
+            s += 10
+        return s
+
+    start = pick(_START_HINTS)
+    end = pick(_END_HINTS, exclude=(start,) if start else ())
+    wfrom = pick(_WIN_FROM_HINTS, exclude=tuple(x for x in (start, end) if x))
+    wto = pick(_WIN_TO_HINTS, exclude=tuple(x for x in (start, end, wfrom) if x))
+    roles = {
+        "start": start, "end": end,
+        "aoi": pick(_AOI_HINTS, aoi_bonus),
+        "window_from": wfrom, "window_to": wto,
+    }
+    return {"candidates": cands, "roles": roles}
+
+
+# ---------------------------------------------------------------------------
+# Hit testing
+# ---------------------------------------------------------------------------
+def _aoi_hit(aois, x, y, shape):
+    """Label of the AOI at (x, y), or None."""
+    if x is None or y is None or not aois:
+        return None
+    typ = (shape or {}).get("type", "circle")
+    if typ == "nearest":
+        maxd = _fnum((shape or {}).get("max_distance"), 0) or 0
+        best, bd = None, None
+        for a in aois:
+            d = ((a["x"] - x) ** 2 + (a["y"] - y) ** 2) ** 0.5
+            if bd is None or d < bd:
+                best, bd = a, d
+        if best is not None and (maxd <= 0 or bd <= maxd):
+            return best["label"]
+        return None
+    if typ == "rect":
+        w = _fnum((shape or {}).get("w"), 100) or 100
+        h = _fnum((shape or {}).get("h"), 100) or 100
+        for a in aois:
+            aw = a.get("w") or w
+            ah = a.get("h") or h
+            if abs(a["x"] - x) <= aw / 2.0 and abs(a["y"] - y) <= ah / 2.0:
+                return a["label"]
+        return None
+    if typ == "fields":
+        rdef = _fnum((shape or {}).get("radius"), 100) or 100
+        for a in aois:
+            aw, ah = a.get("w"), a.get("h")
+            if aw and ah:
+                if abs(a["x"] - x) <= aw / 2.0 and abs(a["y"] - y) <= ah / 2.0:
+                    return a["label"]
+            else:
+                rr = a.get("r") or rdef
+                if ((a["x"] - x) ** 2 + (a["y"] - y) ** 2) ** 0.5 <= rr:
+                    return a["label"]
+        return None
+    # circle (default): closest AOI whose radius contains the point
+    rdef = _fnum((shape or {}).get("radius"), 100) or 100
+    best, bd = None, None
+    for a in aois:
+        rr = a.get("r") or rdef
+        d = ((a["x"] - x) ** 2 + (a["y"] - y) ** 2) ** 0.5
+        if d <= rr and (bd is None or d < bd):
+            best, bd = a, d
+    return best["label"] if best else None
+
+
+# ---------------------------------------------------------------------------
+# The analysis itself
+# ---------------------------------------------------------------------------
+def analyse_trials(rows, parsed, spec, limit=None):
+    """Segment trials, place AOIs, and match fixations / saccades to them.
+
+    Returns per-row assignments (for the table) and a per-trial summary.
+    """
+    spec = spec or {}
+    s_start, s_end = spec.get("start") or {}, spec.get("end") or {}
+    s_aoi = spec.get("aoi") or {}
+    win = spec.get("window") or {}
+    var_specs = spec.get("vars") or []
+
+    m_start = _make_msg_matcher(s_start)
+    m_end = _make_msg_matcher(s_end)
+    m_aoi = _make_msg_matcher(s_aoi)
+    win_on = bool(win.get("enabled"))
+    m_wfrom = _make_msg_matcher(win.get("from")) if win_on else None
+    m_wto = _make_msg_matcher(win.get("to")) if win_on else None
+    w_off_start = _fnum(win.get("offset_start"), 0) or 0
+    w_off_end = _fnum(win.get("offset_end"), 0) or 0
+    var_matchers = [(_make_msg_matcher(v), v) for v in var_specs]
+
+    fx = (s_aoi.get("x") or "x")
+    fy = (s_aoi.get("y") or "y")
+    flabel = (s_aoi.get("label") or "")
+    fw, fh, fr = s_aoi.get("w"), s_aoi.get("h"), s_aoi.get("r")
+    shape = s_aoi.get("shape") or {"type": "circle", "radius": 100}
+
+    warnings = []
+    if not m_start:
+        return {"error": "No trial-start message defined."}
+
+    trials = []
+    cur = None
+    n_rows = len(rows)
+
+    def close(cur, end_i, end_time, reason):
+        cur["end_i"] = end_i
+        cur["t_end"] = end_time
+        cur["closed_by"] = reason
+        trials.append(cur)
+
+    for i in range(n_rows):
+        r = rows[i]
+        if r[I_GRP] != "MSG":
+            continue
+        body = (parsed[i]["msg"] or "").strip()
+        if not body:
+            continue
+        t = r[I_START] if isinstance(r[I_START], int) else None
+
+        if m_start and m_start(body):
+            if cur is not None:                      # unterminated previous trial
+                close(cur, i - 1, cur.get("t_last", cur["t_start"]), "next-start")
+                warnings.append("trial %d had no end marker" % (len(trials)))
+            cur = {"n": len(trials) + 1, "start_i": i, "t_start": t, "t_last": t,
+                   "vars": dict(_spec_fields(s_start, _body_after(body, s_start))),
+                   "aois": [], "w_from": None, "w_to": None}
+            if limit and len(trials) >= limit:
+                cur = None
+                break
+            continue
+
+        if cur is None:
+            continue
+        if t is not None:
+            cur["t_last"] = t
+
+        if m_end and m_end(body):
+            cur["vars"].update(_spec_fields(s_end, _body_after(body, s_end)))
+            close(cur, i, t, "end-marker")
+            cur = None
+            continue
+
+        for vm, vs in var_matchers:
+            if vm and vm(body):
+                pre = vs.get("prefix") or ""
+                for k, v in _spec_fields(vs, _body_after(body, vs)).items():
+                    cur["vars"][pre + k] = v
+
+        if m_wfrom and cur["w_from"] is None and m_wfrom(body):
+            cur["w_from"] = t
+        if m_wto and cur["w_to"] is None and m_wto(body):
+            cur["w_to"] = t
+
+        if m_aoi and m_aoi(body):
+            f = _spec_fields(s_aoi, _body_after(body, s_aoi))
+            x, y = _fnum(f.get(fx)), _fnum(f.get(fy))
+            if x is None or y is None:
+                continue
+            lab = f.get(flabel) if flabel else None
+            if not lab:
+                lab = "aoi%d" % (len(cur["aois"]) + 1)
+            cur["aois"].append({
+                "x": x, "y": y, "label": str(lab),
+                "w": _fnum(f.get(fw)) if fw else None,
+                "h": _fnum(f.get(fh)) if fh else None,
+                "r": _fnum(f.get(fr)) if fr else None,
+                "fields": f,
+            })
+
+    if cur is not None:
+        close(cur, n_rows - 1, cur.get("t_last"), "eof")
+        warnings.append("last trial had no end marker")
+
+    if limit:
+        trials = trials[:limit]
+
+    # ---- match events to AOIs ------------------------------------------
+    row_trial = [-1] * n_rows
+    row_aoi = [""] * n_rows
+    row_aoi_from = [""] * n_rows
+    labels_seen = {}
+
+    for tr in trials:
+        lo = tr["w_from"] if (win_on and tr["w_from"] is not None) else tr["t_start"]
+        hi = tr["w_to"] if (win_on and tr["w_to"] is not None) else tr["t_end"]
+        if lo is not None:
+            lo += w_off_start
+        if hi is not None:
+            hi += w_off_end
+        tr["win_start"], tr["win_end"] = lo, hi
+        aois = tr["aois"]
+        fixes, saccs = [], []
+        for i in range(tr["start_i"], min(tr["end_i"], n_rows - 1) + 1):
+            r = rows[i]
+            grp = r[I_GRP]
+            if grp not in ("FIX", "SACC"):
+                continue
+            t = r[I_START]
+            if not isinstance(t, int):
+                continue
+            row_trial[i] = tr["n"]
+            if lo is not None and t < lo:
+                continue
+            if hi is not None and t > hi:
+                continue
+            cat = r[I_CAT]
+            if cat == "EFIX":
+                x, y = _fnum(r[8]), _fnum(r[9])
+                lab = _aoi_hit(aois, x, y, shape)
+                row_aoi[i] = lab or ""
+                if lab:
+                    labels_seen[lab] = labels_seen.get(lab, 0) + 1
+                fixes.append({"t": t, "dur": r[I_DUR] if isinstance(r[I_DUR], int) else 0,
+                              "aoi": lab, "x": x, "y": y})
+            elif cat == "ESACC":
+                x1, y1 = _fnum(r[8]), _fnum(r[9])
+                x2, y2 = _fnum(r[10]), _fnum(r[11])
+                a_from = _aoi_hit(aois, x1, y1, shape)
+                a_to = _aoi_hit(aois, x2, y2, shape)
+                row_aoi[i] = a_to or ""
+                row_aoi_from[i] = a_from or ""
+                saccs.append({"t": t, "aoi": a_to, "from": a_from,
+                              "amp": _fnum(r[12]), "vel": _fnum(r[13])})
+        tr["_fixes"], tr["_saccs"] = fixes, saccs
+
+    # ---- per-trial summary ---------------------------------------------
+    var_names = []
+    for tr in trials:
+        for k in tr["vars"]:
+            if k not in var_names:
+                var_names.append(k)
+    dwell_labels = sorted(labels_seen)
+    use_dwell = 0 < len(dwell_labels) <= 12
+
+    cols = (["trial", "t_start", "t_end", "duration"]
+            + (["win_start", "win_end"] if win_on else [])
+            + var_names
+            + ["n_aoi", "n_fix", "n_sacc",
+               "first_fix_aoi", "first_fix_latency", "first_fix_rank",
+               "first_sacc_aoi", "first_sacc_from", "first_sacc_latency",
+               "first_sacc_amp", "first_sacc_rank"])
+    if use_dwell:
+        cols += ["dwell_" + l for l in dwell_labels]
+        cols += ["nfix_" + l for l in dwell_labels]
+
+    srows = []
+    for tr in trials:
+        base = tr["win_start"] if tr.get("win_start") is not None else tr["t_start"]
+        fixes, saccs = tr["_fixes"], tr["_saccs"]
+        # "First" means the first event that actually landed in an AOI: events
+        # that hit nothing (the initial central fixation, a stray saccade) are
+        # skipped rather than reported as the first.  The rank says how many
+        # in-window events were passed over, which is a useful sanity check.
+        f0 = f0rank = None
+        for k, f in enumerate(fixes):
+            if f["aoi"]:
+                f0, f0rank = f, k + 1
+                break
+        s0 = s0rank = None
+        for k, sc in enumerate(saccs):
+            if sc["aoi"]:
+                s0, s0rank = sc, k + 1
+                break
+        dur = (tr["t_end"] - tr["t_start"]
+               if isinstance(tr["t_end"], int) and isinstance(tr["t_start"], int) else "")
+        row = [tr["n"], tr["t_start"], tr["t_end"], dur]
+        if win_on:
+            row += [tr.get("win_start"), tr.get("win_end")]
+        row += [tr["vars"].get(k, "") for k in var_names]
+        row += [
+            len(tr["aois"]), len(fixes), len(saccs),
+            (f0 or {}).get("aoi") or "",
+            (f0["t"] - base) if (f0 and base is not None) else "",
+            f0rank if f0rank else "",
+            (s0 or {}).get("aoi") or "",
+            (s0 or {}).get("from") or "",
+            (s0["t"] - base) if (s0 and base is not None) else "",
+            (s0 or {}).get("amp") if s0 else "",
+            s0rank if s0rank else "",
+        ]
+        if use_dwell:
+            dw = {l: 0 for l in dwell_labels}
+            nf = {l: 0 for l in dwell_labels}
+            for f in fixes:
+                if f["aoi"] in dw:
+                    dw[f["aoi"]] += f["dur"] or 0
+                    nf[f["aoi"]] += 1
+            row += [dw[l] for l in dwell_labels]
+            row += [nf[l] for l in dwell_labels]
+        srows.append(row)
+
+    for tr in trials:
+        tr.pop("_fixes", None)
+        tr.pop("_saccs", None)
+
+    return {
+        "n_trials": len(trials),
+        "row_trial": row_trial,
+        "row_aoi": row_aoi,
+        "row_aoi_from": row_aoi_from,
+        "summary": {"columns": cols, "rows": srows},
+        "warnings": warnings[:20],
+        "labels": dwell_labels,
+        "matched_fix": sum(1 for v in row_aoi if v),
+        "trials_preview": [
+            {"n": t["n"], "t_start": t["t_start"], "t_end": t["t_end"],
+             "vars": t["vars"], "n_aoi": len(t["aois"]),
+             "aois": t["aois"][:12], "win": [t.get("win_start"), t.get("win_end")]}
+            for t in trials[:8]
+        ],
+    }
+
+
+def make_handler(reg, converted_from_line, presets_dir, watcher):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -1406,6 +2049,10 @@ def make_handler(reg, converted_from_line, presets_dir):
             elif route == "/api/browse":
                 q = parse_qs(urlparse(self.path).query)
                 self._json(browse_dir(q.get("path", [""])[0]))
+            elif route == "/api/watch":
+                self._json(watcher.status())
+            elif route == "/api/schemes":
+                self._json(_load_presets(_schemes_dir(presets_dir)))
             elif route == "/api/presets":
                 self._json(_load_presets(presets_dir))
             elif route == "/api/progress":
@@ -1458,12 +2105,110 @@ def make_handler(reg, converted_from_line, presets_dir):
                 self._presets_write()
             elif route == "/api/open":
                 self._open_files()
+            elif route == "/api/open_folder":
+                self._open_folder()
+            elif route == "/api/watch":
+                self._watch()
             elif route == "/api/close":
                 self._close_file()
             elif route == "/api/notes":
                 self._write_note()
+            elif route == "/api/schemes":
+                self._schemes_write()
+            elif route == "/api/trials/suggest":
+                self._trials_suggest()
+            elif route == "/api/trials/run":
+                self._trials_run()
+            elif route == "/api/trials/export":
+                self._trials_export()
             else:
                 self._send(404, b"not found", "text/plain")
+
+        # ---- trial / AOI analysis -----------------------------------
+        def _entry_for(self, req):
+            entry = reg.get(req.get("file"))
+            if entry is None:
+                self._send(404, b"file not open", "text/plain")
+                return None
+            _ensure_parsed(entry, converted_from_line)
+            if entry.error:
+                self._send(500, entry.error.encode("utf-8"), "text/plain")
+                return None
+            return entry
+
+        def _trials_suggest(self):
+            req = self._body()
+            entry = self._entry_for(req)
+            if entry is None:
+                return
+            self._json(suggest_markers(entry.rows, entry.parsed))
+
+        def _trials_run(self):
+            req = self._body()
+            entry = self._entry_for(req)
+            if entry is None:
+                return
+            res = analyse_trials(entry.rows, entry.parsed, req.get("scheme") or {},
+                                 req.get("limit"))
+            if not req.get("preview") and "row_trial" in res:
+                entry.trials = {"row_trial": res["row_trial"],
+                                "row_aoi": res["row_aoi"],
+                                "row_aoi_from": res["row_aoi_from"]}
+            if req.get("preview"):
+                res.pop("row_trial", None)
+                res.pop("row_aoi", None)
+                res.pop("row_aoi_from", None)
+                res["summary"]["rows"] = res["summary"]["rows"][:25]
+            body = gzip.compress(json.dumps(res).encode("utf-8"), 5)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _trials_export(self):
+            req = self._body()
+            entry = self._entry_for(req)
+            if entry is None:
+                return
+            res = analyse_trials(entry.rows, entry.parsed, req.get("scheme") or {})
+            fmt = req.get("format", "csv")
+            cols, srows = res["summary"]["columns"], res["summary"]["rows"]
+            if fmt == "html":
+                head = "".join("<th>%s</th>" % _esc(c) for c in cols)
+                body_rows = "\n".join(
+                    "<tr>" + "".join("<td>%s</td>" % _esc(v) for v in r) + "</tr>"
+                    for r in srows)
+                sub = ("%d trials &middot; exported by gama %s"
+                       % (len(srows), __version__))
+                body = _HTML_DOC.format(title=_esc(entry.name + " — trials"),
+                                        sub=sub, head=head,
+                                        rows=body_rows).encode("utf-8")
+                ext = ".html"
+            else:
+                import csv as _csv
+                buf = StringIO()
+                w = _csv.writer(buf, delimiter=("\t" if fmt == "tsv" else ","),
+                                lineterminator="\n")
+                w.writerow(cols)
+                for r in srows:
+                    w.writerow(r)
+                body = buf.getvalue().encode("utf-8")
+                ext = ".tsv" if fmt == "tsv" else ".csv"
+            self._send(200, body, "application/octet-stream",
+                       {"Content-Disposition":
+                        'attachment; filename="%s_trials%s"' % (entry.base, ext)})
+
+        def _schemes_write(self):
+            req = self._body()
+            d = _schemes_dir(presets_dir)
+            name = (req.get("name") or "").strip()
+            if req.get("action") == "delete":
+                _delete_preset(d, name)
+            elif name:
+                _save_preset(d, name, req.get("scheme") or {})
+            self._json(_load_presets(d))
 
         def _write_note(self):
             req = self._body()
@@ -1494,6 +2239,32 @@ def make_handler(reg, converted_from_line, presets_dir):
                     skipped.append(p)
             self._json({"files": reg.listing(), "added": added,
                         "skipped": skipped})
+
+        def _open_folder(self):
+            req = self._body()
+            folder = req.get("path") or ""
+            recursive = bool(req.get("recursive"))
+            paths = list_edfs(folder, recursive)
+            added = [reg.add(p) for p in paths]
+            self._json({"files": reg.listing(), "added": added,
+                        "folder": os.path.abspath(folder) if folder else None,
+                        "count": len(added)})
+
+        def _watch(self):
+            req = self._body()
+            action = req.get("action", "start")
+            if action == "stop":
+                watcher.stop()
+                self._json({"files": reg.listing(), "watch": watcher.status()})
+                return
+            folder = req.get("path") or ""
+            recursive = bool(req.get("recursive"))
+            added = []
+            if req.get("open_existing", True):
+                added = [reg.add(p) for p in list_edfs(folder, recursive)]
+            watcher.start(folder, recursive)
+            self._json({"files": reg.listing(), "added": added,
+                        "watch": watcher.status()})
 
         def _close_file(self):
             req = self._body()
@@ -1573,13 +2344,14 @@ def serve(paths, converted_from_line, port, open_browser, presets_dir):
     reg = Registry()
     for p in paths:
         reg.add(p)
+    watcher = Watcher(reg)
     try:
         os.makedirs(presets_dir, exist_ok=True)
     except OSError:
         pass
     httpd = ThreadingHTTPServer(
         ("127.0.0.1", port),
-        make_handler(reg, converted_from_line, presets_dir))
+        make_handler(reg, converted_from_line, presets_dir, watcher))
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     n = len(paths)
     print(f"EDF Explorer: {n} file(s) preloaded"
