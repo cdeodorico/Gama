@@ -4,15 +4,15 @@
     <img width="1662" height="826" alt="Screenshot 2026-07-22 at 22-40-48 Gama" src="https://github.com/user-attachments/assets/227e3483-681a-4df4-b2c3-e3767dffb66d" />
 </p>
 
-A viewer for SR Research EyeLink `.EDF` files. It converts a recording the same way SR Research's `edf2asc` does, then shows the result in the browser as a sortable, filterable table instead of an insane wall of text.
+A viewer for SR Research's EyeLink `.EDF` files. It converts a recording the same way SR Research's `edf2asc` does, then shows the result in the browser as a sortable, filterable table.
 
-Through multiple filters one can extract what they actually care about. If you don't want all the dataviewer BS, just filter it.
+Through multiple filters one can extract what they actually care about.
 
 ## Why
 
-The usual loop is: run `edf2asc`, open the `.asc` in a text editor or Excel, then good luck. The excel import function molests your file, the columns don't line up because every line type has a different "shape" , and 45% of the file is `!CAL` and `!V` lines you don't care about. This does the conversion in memory and gives you filters instead. Thank me in 20 years.
+In our lab, the usual loop was: run `edf2asc` and convert the `.EDF` to a readable `.ASC`, open that `.ASC` in a text editor or Excel, then analyse through macros or other means. The excel import function that we became acustomed to tending to not respect column contexts, most likely because the converter did neither. Additionally, if one was not interested in using the Experiment Viewer paid software, extra lines were included that could cloud data. Gama does the conversion in memory and gives you filters instead.
 
-The conversion is not a re-implementation (I'd kill myself before it was) - it drives the real `edfapi` through ctypes, and the output is byte-for-byte identical to `edf2asc` (if you output `.asc`) on the files I've tested (same md5). If you export everything with no filters you get exactly the file `edf2asc` would have produced, so nothing downstream needs to change.
+The conversion is not a re-implementation of the native converter (Far too difficult, and most likely breaches copyright). Instead, Gama drives the real `edfapi` through ctypes, and the output is byte-for-byte identical to `edf2asc` (if you output `.ASC`) on the files I've tested (same md5). If you export everything with no filters you get exactly the file `edf2asc` would have produced, so nothing downstream needs to change.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ Windows, macOS and Linux all work (as far as I know).
 python gama.py
 ```
 
-That's it. Gama starts a small local server, opens your browser, and you pick files from there. The server binds to 127.0.0.1 and only talks to your own machine.
+Gama starts a small local server, opens your browser, and you pick files from there. The server binds to 127.0.0.1 and only talks to your own machine.
 
 You can also pass files headless if you like:
 
@@ -39,9 +39,10 @@ You can also pass files headless if you like:
 python gama.py sub01.EDF sub02.EDF
 ```
 
-Each file gets a tab. `+` adds more, `✕` closes one. Files are parsed (lazily) the first time you look at them, so opening ten recordings doesn't crash shit systems until you click through to them. You also have the option of selection "Watch Folder". This allows the selection of a folder rather than a number of recordings. If any new `.EDF` files are added to this directory, Gama will detect them and automatically add them (lazily).
+Each file gets a tab. `+` adds more, `✕` closes one. Files are parsed (lazily) the first time you look at them, so as not to hang lower-end systems. You also have the option of selection "Watch Folder". This allows the selection of a folder rather than a number of recordings. If any new `.EDF` files are added to this directory, Gama will detect them and automatically add them (again, lazily).
 
 Filters live in the left panel and apply to whichever tab you're on, so you can set up a view configuration once and click between recordings to compare. There's an About/Help button at the bottom of that panel explaining every option and column.
+
 ## Command line
 
 I don't ever use this but its easy to implement so have fun. Some examples:
@@ -78,17 +79,17 @@ Filters:
 | `--min-fix-dur` / `--min-sacc-dur` | ms, applied to EFIX / ESACC respectively |
 | `--relative` | CSV/TSV times relative to each file's first timestamp |
 
-ASC exports always keep absolute timestamps, otherwise they wouldn't be valid ASC (sorry, just use CSV).
+`.Asc` exports always keep absolute timestamps, otherwise they wouldn't be valid ASC (sorry, just use `.CSV`).
 
 ## Presets
 
-Save a set of filters from the sidebar in `presets/` next to the script as a small JSON file. They're  text and one file per preset, so you can commit them, email them, or hand-edit them, etc..
+Save a set of filters from the sidebar in `presets/` next to the script/executable as a small `.JSON` file. One file per preset, so you can commit them, email them, or hand-edit them, etc..
 
 ## Trials and areas of interest
 
-The other half of the program, and the bit that turns this from a viewer into something that produces numbers. `Trials ▾` in the toolbar opens a panel that cuts the recording into trials and works out which stimulus each fixation and saccade actually landed on.
+Gama started as just a viewer and converter. With the addition of trials analysis functionality, we can now do preliminary assessments that make finding essential data points easier. `Trials ▾` in the toolbar opens a panel that cuts the recording into trials and works out which stimulus each fixation and saccade actually landed on.
 
-It reads *your* messages. I'm not going to pretend everyone labels things the way I do, so when the panel opens it scans the file, guesses the markers, and you correct whatever it got wrong. On my recordings it picks the lot unassisted: `TRIAL_START`, `TRIAL_END`, `STIM_POS`, and `DISPLAY_ONSET` -> `RESPONSE` for the analysis window.
+It reads experimental messages. I'm not going to pretend everyone labels things the way I do, so when the panel opens it scans the file, guesses the markers, and you correct whatever it got wrong. On my recordings, it picks the lot unassisted: `TRIAL_START`, `TRIAL_END`, `STIM_POS`, and `DISPLAY_ONSET` -> `RESPONSE` for the analysis window. Your milage may vary, so please be careful and double check your output.
 
 ### What you point it at
 
@@ -112,25 +113,26 @@ Three ways to read fields, because nobody formats these the same:
 
 ### What you get out
 
-**Preview** shows the first handful of parsed trials with their variables and AOI positions, so you find out you've cocked up the config before you commit to it rather than after.
+**Preview** shows the first handful of parsed trials with their variables and AOI positions, use this to assess your config.
 
 **Apply to table** adds `Trial` and `AOI` columns to the main view - filterable and sortable like everything else, and they ride along in the CSV/TSV/HTML row exports (saccades also carry the AOI they left from).
 
 **Export trials** is the one you actually want: one row per trial, with your variables plus fixation and saccade counts, the first fixation and first saccade, their latencies, and dwell time and fixation count per AOI label.
 
-"First" means the first one that *hit something*. The opening fixation is usually still parked in the middle of the screen and reporting that as your first fixation is useless, so anything that landed on nothing gets skipped. `first_fix_rank` / `first_sacc_rank` tell you how many were skipped (1 = the very first one hit an AOI), which is a decent smell test - if that number starts creeping up, your radius is probably too small.
+"First" means the first measure that *hit something*. The opening fixation is usually still parked in the middle of the screen (if you choose to use fixation control) and reporting that as your first fixation is useless, so anything that landed on nothing gets skipped.
+This still allows for assessment of behaviours such as covert attentional direction by assessing in analysis the fixation/saccade ranks. `first_fix_rank` / `first_sacc_rank` tell you how many were skipped (1 = the first one hit an AOI).
 
-Save the whole setup as a **scheme** and it lands in `schemes/` next to the script. Configure it once, use it on every participant, email it to whoever's stuck doing the analysis.
+Save the whole setup as a **scheme** and it will appear in `schemes/` next to the script/executable.
 
-This bit is UI only, there's no command line equivalent yet.
+This bit is UI only (for now).
 
 ## Updates
 
-Gama has a look at the GitHub releases page once a day and tells you if there's a newer version. That's it - it never downloads or installs anything on its own, and it's the only time the program touches the network.
+At startup, Gama has a look at the GitHub releases page and tells you if there's a newer version.
 
-If there's something new you get a small `Update: x.y.z` pill in the header; clicking it takes you to the download. There's also a line in About/Help with a **Check now** button and a tickbox to turn the whole thing off if you'd rather it didn't phone home.
+If there's something new you get a small `Update: x.y.z` pill in the header; clicking it takes you to the download. There's also a line in About/Help with a **Check now** button and a tickbox to turn off automatic updates if you'd rather it didn't.
 
-It knows how you're running it, so the advice differs: the `.exe` sends you to the release asset, a source checkout gets told to `git pull`. Your presets, schemes and notes all live outside the program, so updating never eats them.
+Gama determines how it is running, so the link differs: the `.exe` sends you to the release asset, a source checkout gets told to `git pull`. Outputs and sidecars aren't affected.
 
 From the command line:
 
@@ -139,7 +141,7 @@ python gama.py --check-update      # ask now, print the answer, exit
 python gama.py --no-update-check   # turn it off (remembered)
 ```
 
-If GitHub is unreachable, rate limited, or there are no releases published yet, it shrugs and carries on - nothing blocks startup and nothing pops up.
+If GitHub is unreachable, rate limited, or there are no releases published yet, nothing is done.
 
 # Keyboard shortcuts
 
@@ -149,7 +151,7 @@ If GitHub is unreachable, rate limited, or there are no releases published yet, 
 
 | Key | Action |
 | --- | --- |
-| `Ctrl` + `K` | Open the command palette — fuzzy-search every action and preset, run with `Enter` |
+| `Ctrl` + `K` | Open the command palette. Fuzzy-search actions and presets, run with `Enter` |
 
 ## Finding things
 
@@ -181,7 +183,7 @@ If GitHub is unreachable, rate limited, or there are no releases published yet, 
 | `Ctrl` + `C` | Copy the selection as TSV — paste straight into Excel |
 
 With nothing selected, `Ctrl` + `C` copies the whole view. Only the visible columns
-are copied, so hide what you don't want first.
+are copied, so hide what you don't want first via filters, column logical control, etc..
 
 ## Files and tabs
 
@@ -202,22 +204,12 @@ are copied, so hide what you don't want first.
 
 ## Notes and limitations
 
-- Events only. Samples aren't loaded, which is why it's fast and why there's no
-  gaze trace. If you need samples, use `edf2asc` proper (sorry).
-- The first line of an ASC (`** CONVERTED FROM ...`) records the path, edfapi
-  version and time of the *original* conversion. None of that is in the EDF, so
-  it's a default string you can override with `--converted-from-line`.
-- Blinks inside a saccade get merged into one, and missing gaze shows up as `.`
-  with a huge scientific-notation amplitude. Both are `edf2asc` behaviours, faithfully
-  reproduced, much to my chagrin.
-- Trial and AOI matching is only as good as the radius you hand it. Check the
-  preview and the rank columns before you trust a spreadsheet.
-- `gama.py` is only the launcher. The code lives in `gamalib/` next to it, a
-  module per job - `convert.py` does EDF->ASC, `trials.py` the trial and AOI
-  analysis, `server.py` the web bits, and so on. Keep those together along with
-  `index.html`. If you ever touch `convert.py`, check byte-identity still holds
-  before anything else:
-
+- Events only. Samples aren't loaded. Can't really do that without breaching copyright.
+- The first line of an ASC (`** CONVERTED FROM ...`) records the path, edfapi version and time of the *original* conversion. None of that is in the EDF, so it's a default string you can override with `--converted-from-line`.
+- Blinks inside a saccade get merged into one, and missing gaze shows up as `.` with a huge scientific-notation amplitude. Both are `edf2asc` behaviours, faithfully reproduced, much to my own chagrin.
+- Trial and AOI matching is only as good as the radius you hand it. Check the preview and the rank columns before you trust a spreadsheet (coming from experience).
+- `gama.py` is only the launcher. The code lives in `gamalib/` next to it, a module per job - `convert.py` does EDF->ASC, `trials.py` the trial and AOI analysis, `server.py` the web bits, and so on. Keep those together along with `index.html`. If you ever touch `convert.py`, check byte-identity still holds before anything else (if you care about that):
+  
   ```
   python gama.py rec.EDF --export /tmp/out.asc
   cmp /tmp/out.asc reference.asc
