@@ -89,3 +89,72 @@ def _delete_preset(dir_path, name):
         path = _find_preset_file(dir_path, name)
         if path and os.path.isfile(path):
             os.remove(path)
+
+
+# ---------------------------------------------------------------------------
+# Recently opened files (a small list beside the presets folder)
+# ---------------------------------------------------------------------------
+RECENT_MAX = 12
+_RECENT_LOCK = threading.Lock()
+
+
+def _recent_path(presets_dir):
+    return os.path.join(os.path.dirname(os.path.abspath(presets_dir)),
+                        "recent-files.json")
+
+
+def load_recent(presets_dir):
+    """Recently opened recordings, newest first, with dead paths dropped."""
+    try:
+        with open(_recent_path(presets_dir), "r", encoding="utf-8") as fh:
+            items = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    out = []
+    for it in items if isinstance(items, list) else []:
+        p = it.get("path") if isinstance(it, dict) else it
+        if not p:
+            continue
+        out.append({"path": p, "name": os.path.basename(p),
+                    "folder": os.path.dirname(p),
+                    "exists": os.path.isfile(p),
+                    "opened": (it.get("opened") if isinstance(it, dict) else None)})
+    return out[:RECENT_MAX]
+
+
+def add_recent(presets_dir, paths):
+    """Push paths onto the front of the recent list."""
+    import time as _time
+    with _RECENT_LOCK:
+        current = []
+        try:
+            with open(_recent_path(presets_dir), "r", encoding="utf-8") as fh:
+                current = json.load(fh)
+        except (OSError, ValueError):
+            current = []
+        if not isinstance(current, list):
+            current = []
+        now = int(_time.time())
+        for p in reversed([p for p in paths if p]):
+            ap = os.path.abspath(p)
+            current = [c for c in current
+                       if (c.get("path") if isinstance(c, dict) else c) != ap]
+            current.insert(0, {"path": ap, "opened": now})
+        current = current[:RECENT_MAX]
+        try:
+            os.makedirs(os.path.dirname(_recent_path(presets_dir)), exist_ok=True)
+            tmp = _recent_path(presets_dir) + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(current, fh, indent=2)
+            os.replace(tmp, _recent_path(presets_dir))
+        except OSError:
+            pass
+    return load_recent(presets_dir)
+
+
+def clear_recent(presets_dir):
+    try:
+        os.remove(_recent_path(presets_dir))
+    except OSError:
+        pass
+    return []

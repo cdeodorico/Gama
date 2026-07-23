@@ -296,6 +296,26 @@ def _aoi_hit(aois, x, y, shape):
 # ---------------------------------------------------------------------------
 # The analysis itself
 # ---------------------------------------------------------------------------
+_COORD_RE = re.compile(r"(-?\d+(?:\.\d+)?)")
+
+
+def detect_screen(rows, parsed):
+    """Display size in pixels, from the tracker's own coordinate messages."""
+    for i, r in enumerate(rows):
+        if r[I_GRP] != "MSG":
+            continue
+        body = (parsed[i]["msg"] or "").strip()
+        up = body.upper()
+        if up.startswith("GAZE_COORDS") or up.startswith("DISPLAY_COORDS"):
+            nums = [float(x) for x in _COORD_RE.findall(body)]
+            if len(nums) >= 4:
+                x0, y0, x1, y1 = nums[:4]
+                w, h = abs(x1 - x0) + 1, abs(y1 - y0) + 1
+                if w > 1 and h > 1:
+                    return {"w": int(round(w)), "h": int(round(h))}
+    return None
+
+
 def analyse_trials(rows, parsed, spec, limit=None):
     """Segment trials, place AOIs, and match fixations / saccades to them.
 
@@ -323,6 +343,7 @@ def analyse_trials(rows, parsed, spec, limit=None):
     fw, fh, fr = s_aoi.get("w"), s_aoi.get("h"), s_aoi.get("r")
     shape = s_aoi.get("shape") or {"type": "circle", "radius": 100}
 
+    screen = detect_screen(rows, parsed)
     warnings = []
     if not m_start:
         return {"error": "No trial-start message defined."}
@@ -518,6 +539,12 @@ def analyse_trials(rows, parsed, spec, limit=None):
             row += [nf[l] for l in dwell_labels]
         srows.append(row)
 
+    preview_fix = {}
+    for tr in trials[:8]:
+        preview_fix[tr["n"]] = [
+            {"x": f["x"], "y": f["y"], "dur": f["dur"], "aoi": f["aoi"]}
+            for f in tr["_fixes"][:60]
+            if f["x"] is not None and f["y"] is not None]
     for tr in trials:
         tr.pop("_fixes", None)
         tr.pop("_saccs", None)
@@ -534,7 +561,9 @@ def analyse_trials(rows, parsed, spec, limit=None):
         "trials_preview": [
             {"n": t["n"], "t_start": t["t_start"], "t_end": t["t_end"],
              "vars": t["vars"], "n_aoi": len(t["aois"]),
-             "aois": t["aois"][:12], "win": [t.get("win_start"), t.get("win_end")]}
+             "aois": t["aois"][:12], "win": [t.get("win_start"), t.get("win_end")],
+             "fixations": preview_fix.get(t["n"], [])}
             for t in trials[:8]
         ],
+        "screen": screen,
     }

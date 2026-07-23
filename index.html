@@ -39,6 +39,12 @@
   .btn:hover{border-color:var(--accent);background:var(--rowhover)}
   .btn.sm{padding:5px 8px;font-size:12px}
   .btn.primary{border-color:var(--accent2);color:var(--accent2);font-weight:600}
+  .btn.danger{border-color:#7a3b3b;color:#e08585;background:rgba(200,70,70,.10)}
+  .btn.danger:hover{border-color:#c04a4a;color:#ff9b9b;background:rgba(200,70,70,.22)}
+  body.light .btn.danger{border-color:#d9a3a3;color:#b03030;
+    background:rgba(200,70,70,.08)}
+  body.light .btn.danger:hover{border-color:#c04a4a;color:#8f2020;
+    background:rgba(200,70,70,.16)}
   .btn.primary:hover{background:var(--rowhover);border-color:var(--accent2)}
   .btn:disabled{opacity:.45;cursor:default}
   .tabs{display:flex;gap:3px;background:var(--panel);flex:none;
@@ -54,6 +60,27 @@
     padding:0 3px}
   .tab .x:hover{color:#fff;background:#c0392b}
   .tab.add{font-weight:700;color:var(--accent2)}
+  .tab.filesbtn{color:var(--txt);background:var(--panel2);font-weight:600}
+  .tdot{width:6px;height:6px;border-radius:50%;background:var(--accent2);
+    display:inline-block;margin-left:7px;vertical-align:middle;flex:none}
+  .filepick{position:fixed;z-index:70;display:none;width:min(430px,90vw);
+    background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    box-shadow:0 14px 40px rgba(0,0,0,.5);overflow:hidden}
+  .filepick.open{display:block}
+  .filepick input{margin:0;border:0;border-bottom:1px solid var(--line);
+    border-radius:0;padding:9px 12px}
+  .filepick input:focus{outline:none}
+  .fplist{max-height:340px;overflow:auto;padding:4px}
+  .fprow{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;
+    cursor:pointer;font-size:12px}
+  .fprow:hover{background:var(--rowhover)}
+  .fprow.on{background:var(--rowsel)}
+  .fpname{flex:none;font-weight:600}
+  .fptag{flex:none;font-size:10px;color:var(--accent2);border:1px solid var(--accent2);
+    border-radius:8px;padding:0 5px}
+  .fpdir{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;direction:rtl;text-align:left}
+  .fpempty{padding:14px;color:var(--muted);text-align:center;font-size:12px}
   /* modal file browser */
   .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
     display:none;align-items:center;justify-content:center}
@@ -98,6 +125,29 @@
   .trpv .tcard h4{margin:0 0 6px;font-size:12px}
   .trpv .kvs{color:var(--muted);font-size:11px;margin-bottom:6px;
     white-space:normal;word-break:break-word}
+  .trmini{display:flex;gap:12px;align-items:flex-start;margin:8px 0 4px 126px;
+    padding:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:8px}
+  .trminipic{flex:none}
+  .trminitxt{flex:1;min-width:0;font-size:12px}
+  .trminitxt b{color:var(--txt)}
+  #trMiniInfo{color:var(--muted);margin-top:3px}
+  .tcardbody{display:flex;gap:12px;align-items:flex-start}
+  .tcardinfo{flex:1;min-width:0}
+  .plotwrap{flex:none}
+  .trplot{width:270px;height:auto;display:block;border-radius:5px}
+  .trplot .screen{fill:var(--bg);stroke:var(--line)}
+  .trplot .aoi{fill:rgba(91,157,255,.13);stroke:var(--accent);stroke-width:1}
+  .trplot .aoic{fill:var(--accent)}
+  .trplot .aoit{fill:var(--muted);font-size:8px;text-anchor:middle}
+  .trplot .fix{opacity:.9}
+  .trplot .fix.hit{fill:var(--accent2)}
+  .trplot .fix.miss{fill:#e05252}
+  .plotkey{color:var(--muted);font-size:10px;margin-top:3px;text-align:center}
+  .plotkey .k{display:inline-block;width:7px;height:7px;border-radius:50%;
+    margin:0 3px 0 7px;vertical-align:middle}
+  .plotkey .k.hit{background:var(--accent2)}
+  .plotkey .k.miss{background:#e05252}
   .trwarn{background:rgba(224,82,82,.12);border:1px solid #e05252;border-radius:6px;
     padding:7px 10px;margin-bottom:10px;font-size:12px}
   .trok{color:var(--accent2)}
@@ -153,6 +203,23 @@
     text-overflow:ellipsis;white-space:nowrap}
   .watchbar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);
     animation:wpulse 1.4s infinite}
+  .recentwrap{margin:8px 14px 0;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel2);max-height:150px;overflow:auto;flex:none}
+  .recenthdr{display:flex;align-items:center;justify-content:space-between;
+    padding:5px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;
+    letter-spacing:.5px;position:sticky;top:0;background:var(--panel2)}
+  .recentlist .ritem{display:flex;align-items:center;gap:8px;padding:4px 10px;
+    cursor:pointer;font-size:12px}
+  .recentlist .ritem:hover{background:var(--rowhover)}
+  .recentlist .ritem.gone{opacity:.45;cursor:default}
+  .recentlist .rname{flex:none;font-weight:600}
+  .recentlist .rdir{flex:1;color:var(--muted);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+  .dropmask{position:fixed;inset:0;z-index:80;display:none;align-items:center;
+    justify-content:center;background:rgba(0,0,0,.45);pointer-events:none}
+  .dropmask.show{display:flex}
+  .dropbox{border:2px dashed var(--accent);border-radius:14px;padding:26px 40px;
+    background:var(--panel);color:var(--txt);font-size:15px;font-weight:600}
   .updpill{display:none;align-items:center;gap:6px;margin-left:10px;
     background:rgba(54,192,143,.14);border:1px solid var(--accent2);
     color:var(--accent2);border-radius:12px;padding:2px 9px;font-size:11px;
@@ -221,7 +288,14 @@
   .th{flex:none;padding:6px 8px;font-weight:600;font-size:12px;color:var(--muted);
     border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;user-select:none}
+  .th{position:relative;display:flex;align-items:center;gap:0}
   .th:hover{color:var(--txt)}
+  .th .thlab{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+  .th .grip{position:absolute;top:0;right:-3px;width:7px;height:100%;
+    cursor:col-resize;z-index:2}
+  .th .grip:hover{background:var(--accent);opacity:.5}
+  .th.dragging{opacity:.45}
+  .th.over{box-shadow:inset 3px 0 0 var(--accent)}
   .th .ar{color:var(--accent);margin-left:3px}
   .cfrow{display:flex;position:sticky;top:var(--headh,29px);z-index:4;
     background:var(--panel);border-bottom:1px solid var(--line)}
@@ -314,9 +388,10 @@
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
     <button class="btn" id="trialsBtn" title="Segment trials and match fixations to areas of interest">Trials ▾</button>
     <button class="btn" id="collapseBtn" title="Collapse each recording block to one summary row">Collapse blocks</button>
-    <button class="btn" id="filtBtn" title="Show per-column filter row">Filters</button>
+    <button class="btn" id="filtBtn" title="Show per-column filter row">Filters ▾</button>
     <button class="btn" id="colsBtn">Columns ▾</button>
     <button class="btn" id="expBtn">Export ▾</button>
+    <button class="btn danger" id="quitBtn" title="Stop gama and close the server">Quit</button>
   </header>
   <div class="tabs" id="tabs"></div>
   <div class="main">
@@ -425,6 +500,7 @@
       <div class="mtitle">Share</div>
       <div class="mi" id="copyLink">Copy link to this view</div>
       <div class="mi" id="copyRows">Copy selected rows</div>
+      <div class="mtitle">Sidecar</div>
       <label class="mi" id="sidecarRow" style="display:flex;align-items:center;gap:7px"
              title="Write a small .gama.json next to CSV/TSV/HTML recording the filters, version and source. Not written for ASC.">
         <input type="checkbox" id="sidecarChk"> include provenance .json
@@ -444,7 +520,7 @@
     </header>
     <div class="trtabs">
       <div class="trtab active" data-t="setup">1 · Setup</div>
-      <div class="trtab" data-t="preview">2 · Preview</div>
+      <div class="trtab" data-t="preview">2 · Preview &amp; AOI map</div>
       <div class="trtab" data-t="results">3 · Results</div>
     </div>
 
@@ -516,6 +592,16 @@
         <span id="trShapeArgs"></span>
       </div>
       <div class="trhint" id="trShapeHint"></div>
+      <div class="trmini" id="trMini">
+        <div class="trminipic" id="trMiniPic"></div>
+        <div class="trminitxt">
+          <b>Does this look right?</b>
+          <div id="trMiniInfo">Choose a stimulus message to see your regions drawn.</div>
+          <div class="trhint" style="margin:6px 0 0">Green fixations landed in a
+            region, red ones missed. Adjust the size above and this updates.
+            <b>Preview trials &#9656;</b> shows more trials in detail.</div>
+        </div>
+      </div>
     </div>
 
     <div class="trbody" id="trPreview" style="display:none">
@@ -530,7 +616,8 @@
 
     <div class="dlgfoot">
       <span class="sel" id="trStatus"></span>
-      <button class="btn" id="trPreviewBtn">Preview</button>
+      <button class="btn" id="trPreviewBtn" title="Draw the first few trials, with the AOI regions and where the fixations landed">Preview trials &#9656;</button>
+      <button class="btn" id="trApplyAll" title="Run this scheme over every open recording">Apply to all files</button>
       <button class="btn" id="trExport">Export trials ▾</button>
       <button class="btn primary" id="trApply">Apply to table</button>
     </div>
@@ -565,6 +652,10 @@
       <select id="fbDrives" style="width:auto;margin:0;display:none"></select>
     </div>
     <div class="fbody" id="fbList"></div>
+    <div class="recentwrap" id="recentWrap" style="display:none">
+      <div class="recenthdr">Recent <button class="btn sm" id="recentClear">clear</button></div>
+      <div class="recentlist" id="recentList"></div>
+    </div>
     <div class="dlgfoot">
       <label class="fbchk" title="Also include .EDF files in sub-folders"><input type="checkbox" id="fbRecursive"> include sub-folders</label>
       <span class="sel" id="fbSel"></span>
@@ -677,6 +768,26 @@
           in this browser; not part of a preset.</dd>
       </dl>
 
+      <h3>Columns</h3>
+      <p>Drag the edge of a header to resize a column, or double-click that edge to
+      fit it to what's on screen. Drag a header itself to move the column. Widths,
+      order and which columns are shown are remembered in this browser;
+      <b>Columns &#9662; &rarr; Reset columns</b> puts everything back.</p>
+
+      <h3>Working with many files</h3>
+      <p>Open a folder of recordings and the tab strip gains a <b>&#9776; N files</b>
+      button: a searchable list of everything open, showing which files have had a
+      trial analysis run on them. Handy once a study folder means thirty tabs.</p>
+
+      <h3>Opening files</h3>
+      <p>Besides the <b>+</b> tab, you can drag <code>.EDF</code> files straight onto
+      the window. Browsers only hand over a file's name and not its location, so
+      gama looks for it in folders already in play &mdash; the ones holding open
+      files and any folder you're watching. Dragging in a recording that sits
+      somewhere else entirely won't work; use Open folder for that. The folder
+      browser also lists <b>Recent</b> files, and <b>Quit</b> in the toolbar stops
+      the server properly so you're not left with an orphaned console window.</p>
+
       <h3>Selecting &amp; copying</h3>
       <p>Click a row to select it; shift-click for a range, Ctrl/&#8984;-click to add
       or remove one, Ctrl+A for everything in the current view. Ctrl+C copies the
@@ -780,6 +891,17 @@
           radius (the default), a rectangle, nearest-stimulus (optionally capped at
           a distance), or sizes read from fields in the message itself.</dd>
       </dl>
+      <p>The setup tab shows a small live map of one trial as soon as the markers
+      are worked out, so you can see your regions over real fixations while you're
+      still choosing their size &mdash; change the radius and it redraws. <b>Preview
+      trials &#9656;</b> (or the second tab) does the same for several trials at once,
+      larger.</p>
+      <p><b>Preview</b> draws each trial to scale &mdash; the AOI regions exactly as
+      gama will test them, and the fixations that fell in the window, green where
+      they landed in an AOI and red where they didn't. Change the radius and
+      preview again: if the circles are obviously too small or swallowing the whole
+      screen, you'll see it immediately rather than discovering it in a
+      spreadsheet.</p>
       <p><b>Preview</b> shows the first few parsed trials with their variables and
       AOIs so a mis-parse is obvious before you commit. <b>Apply to table</b> adds
       <i>Trial</i> and <i>AOI</i> columns to the main view &mdash; filterable and
@@ -794,6 +916,13 @@
       stimulus. <code>first_fix_rank</code> and <code>first_sacc_rank</code> say how
       many in-window events were passed over (1 = the very first one already hit an
       AOI), which is a quick way to spot trials that started oddly.</p>
+      <p>Results belong to the file they were run on: switching tabs shows that
+      file's trials, and a file you haven't analysed simply has empty Trial and AOI
+      columns. <b>Apply to all files</b> runs the same scheme over every open
+      recording in turn, which is the quick way through a whole study &mdash; a green
+      dot on each tab marks the files that have been analysed. It also primes each
+      file's export, so a subsequent all-files export carries the trial columns
+      throughout.</p>
       <p>A finished setup can be saved as a named <i>scheme</i> and reused on every
       participant, or shared with a colleague. Schemes live in a
       <code>schemes</code> folder next to <code>presets</code>.</p>
@@ -836,6 +965,7 @@ let ROWH = 24;
 const BUF = 12;
 const GROUP_COLOR = {PREAMBLE:'#6b7280',HEADER:'#a78bfa',END:'#f472b6',
   INPUT:'#fbbf24',MSG:'#5b9dff',FIX:'#36c08f',SACC:'#ff8a5b',BLINK:'#e879f9'};
+let DEFAULT_COLS=null;   // pristine copy, for resetting the layout
 const C = {idx:0,cat:1,grp:2,mkind:3,start:4,end:5,dur:6,eye:7,x1:8,y1:9,
   x2:10,y2:11,amp:12,vel:13,pupil:14,resx:15,resy:16,val:17,raw:18,block:19};
 const GROUPS=['PREAMBLE','HEADER','END','INPUT','MSG','FIX','SACC','BLINK'];
@@ -868,6 +998,8 @@ const COLS = [
   {k:'msg',  label:'Message / Detail', w:680, msg:true, get:msgCell},
 ];
 
+DEFAULT_COLS = COLS.map(c=>Object.assign({},c));
+
 function msgCell(r){
   const g=r[C.grp], raw=r[C.raw];
   if(g==='MSG'){ const b=raw.replace(/^MSG\t\d+ ?/,''); return b.split('\n')[0]
@@ -878,7 +1010,7 @@ function msgCell(r){
 
 let FILES=[], active=-1, cache={};
 let ROWS=[], META=null, view=[];
-let sortCol=null, sortDir=1, selIdx=-1;
+let sortCol=null, sortDir=1, selIdx=-1;   // sortCol is a column key, not an index
 let SEL=new Set();          // selected row indices (idx values)
 let anchorPos=-1;           // disp position for shift-click ranges
 let HITS=[], hitSet=new Set(), hitAt=-1;   // highlight-mode matches
@@ -899,7 +1031,7 @@ const $=id=>document.getElementById(id);
 const fileById=id=>FILES.find(f=>f.id===id);
 
 async function boot(){
-  loadRenames(); loadInfo(); loadUpdate(false);
+  loadRenames(); loadColLayout(); loadInfo(); loadUpdate(false);
   try{
     setTheme(localStorage.getItem('gama.theme')||'dark');
     setFont(localStorage.getItem('gama.font')||'m');
@@ -928,6 +1060,16 @@ function showEmpty(on){
 
 function buildTabs(){
   const el=$('tabs'); el.innerHTML='';
+  // With a study folder open the strip is useless on its own, so offer a
+  // searchable list as well once there are more than a handful of files.
+  if(FILES.length>6){
+    const b=document.createElement('div');
+    b.className='tab filesbtn'; b.id='filesBtn';
+    b.textContent='\u2630 '+FILES.length+' files';
+    b.title='Search and jump to a file';
+    b.onclick=(e)=>{ e.stopPropagation(); toggleFilePicker(); };
+    el.appendChild(b);
+  }
   FILES.forEach(f=>{
     const t=document.createElement('div'); t.className='tab';
     t.title=(RENAMES[f.path]?RENAMES[f.path]+'  —  ':'')+(f.path||f.name)+
@@ -935,6 +1077,8 @@ function buildTabs(){
     t.dataset.id=f.id;
     const nm=document.createElement('span'); nm.textContent=RENAMES[f.path]||f.name;
     t.appendChild(nm);
+    if(TRMAPS[f.id]){ const dot=document.createElement('span');
+      dot.className='tdot'; dot.title='trials analysed'; t.appendChild(dot); }
     const x=document.createElement('span'); x.className='x'; x.textContent='✕';
     x.title='Close file (Alt+W)';
     x.onclick=(e)=>{ e.stopPropagation(); closeFile(f.id); };
@@ -950,12 +1094,60 @@ function buildTabs(){
   markTabs();
   $('allTitle').textContent=`All loaded files (ZIP × ${FILES.length})`;
 }
+function toggleFilePicker(){
+  let p=$('filepick');
+  if(p && p.classList.contains('open')){ p.classList.remove('open'); return; }
+  if(!p){
+    p=document.createElement('div'); p.id='filepick'; p.className='filepick';
+    p.innerHTML='<input type="text" id="fpq" placeholder="Filter files…" spellcheck="false">'+
+                '<div class="fplist" id="fplist"></div>';
+    document.body.appendChild(p);
+    $('fpq').addEventListener('input',()=>renderFilePicker());
+    $('fpq').addEventListener('keydown',e=>{
+      if(e.key==='Escape'){ p.classList.remove('open'); }
+      if(e.key==='Enter'){ const first=p.querySelector('.fprow');
+        if(first) first.click(); }
+    });
+    document.addEventListener('click',e=>{
+      if(!e.target.closest('#filepick') && !e.target.closest('#filesBtn'))
+        p.classList.remove('open');
+    });
+  }
+  const btn=$('filesBtn');
+  if(btn){ const r=btn.getBoundingClientRect();
+    p.style.left=Math.round(r.left)+'px'; p.style.top=Math.round(r.bottom+4)+'px'; }
+  p.classList.add('open');
+  $('fpq').value=''; renderFilePicker();
+  setTimeout(()=>$('fpq').focus(),0);
+}
+function renderFilePicker(){
+  const q=($('fpq').value||'').toLowerCase();
+  const list=$('fplist'); list.innerHTML='';
+  const hits=FILES.filter(f=>!q ||
+    (RENAMES[f.path]||f.name).toLowerCase().includes(q) ||
+    (f.path||'').toLowerCase().includes(q));
+  if(!hits.length){ list.innerHTML='<div class="fpempty">No matching file</div>'; return; }
+  hits.forEach(f=>{
+    const row=document.createElement('div');
+    row.className='fprow'+(f.id===active?' on':'');
+    row.title=f.path||f.name;
+    row.innerHTML='<span class="fpname"></span>'+
+      (TRMAPS[f.id]?'<span class="fptag">trials</span>':'')+
+      '<span class="fpdir"></span>';
+    row.querySelector('.fpname').textContent=RENAMES[f.path]||f.name;
+    row.querySelector('.fpdir').textContent=(f.path||'').replace(/[^\\/]*$/,'');
+    row.onclick=()=>{ $('filepick').classList.remove('open'); loadFile(f.id); };
+    list.appendChild(row);
+  });
+}
+
 function markTabs(){
   document.querySelectorAll('.tab').forEach(t=>
     t.classList.toggle('active', t.dataset.id!==undefined && +t.dataset.id===active));
 }
 
 async function closeFile(id){
+  delete TRMAPS[id]; delete TRRESS[id];
   await fetch('/api/close',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({file:id})});
   delete cache[id];
@@ -990,6 +1182,8 @@ async function loadFile(id){
     cache[id]=await res.json();
   }
   active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
+  // trial/AOI results belong to one file; never show one file's against another's
+  TRMAP=TRMAPS[id]||null; TRRES=TRRESS[id]||null;
   selIdx=-1; SEL.clear(); anchorPos=-1; expanded.clear(); $('details').classList.remove('open');
   $('fname').textContent=META.filename;
   await loadNotes(id);
@@ -1045,7 +1239,7 @@ function pollProgress(id, loading){
 // ---- in-app folder browser ----
 let fbCwd='', fbFileCount=0;
 
-function openBrowser(){ $('mask').classList.add('open'); fbLoad(fbCwd); }
+function openBrowser(){ $('mask').classList.add('open'); fbLoad(fbCwd); loadRecent(); }
 function closeBrowser(){ $('mask').classList.remove('open'); }
 
 async function fbLoad(path){
@@ -1221,6 +1415,109 @@ document.addEventListener('keydown',e=>{
 
 $('emptyAdd').onclick=()=>openBrowser();
 
+// ---- recent files --------------------------------------------------------
+let RECENT=[];
+async function loadRecent(){
+  try{ RECENT=(await (await fetch('/api/recent')).json()).recent||[]; }
+  catch(e){ RECENT=[]; }
+  renderRecent();
+}
+function renderRecent(){
+  const wrap=$('recentWrap'), list=$('recentList');
+  if(!RECENT.length){ wrap.style.display='none'; return; }
+  wrap.style.display='';
+  list.innerHTML='';
+  RECENT.forEach(r=>{
+    const row=document.createElement('div');
+    row.className='ritem'+(r.exists?'':' gone');
+    row.title=r.exists?r.path:(r.path+'  (no longer there)');
+    row.innerHTML='<span class="ic">📄</span><span class="rname"></span>'+
+                  '<span class="rdir"></span>';
+    row.querySelector('.rname').textContent=r.name;
+    row.querySelector('.rdir').textContent=r.folder;
+    if(r.exists) row.onclick=()=>openRecent(r.path);
+    list.appendChild(row);
+  });
+}
+async function openRecent(path){
+  closeBrowser();
+  try{
+    const d=await (await fetch('/api/recent',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({paths:[path]})})).json();
+    FILES=d.files; RECENT=d.recent||RECENT; buildTabs();
+    if(d.added && d.added.length) await loadFile(d.added[0]);
+  }catch(e){ toast('Could not open that file'); }
+}
+$('recentClear').onclick=async e=>{
+  e.stopPropagation();
+  try{ RECENT=(await (await fetch('/api/recent',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'clear'})})).json()).recent||[]; }catch(_){}
+  renderRecent();
+};
+
+// ---- quit ----------------------------------------------------------------
+async function quitGama(){
+  if(!confirm('Stop gama? The server will shut down and this tab will stop working.')) return;
+  try{ await fetch('/api/quit',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:'{}'}); }catch(e){}
+  document.body.innerHTML=
+    '<div style="display:flex;height:100vh;align-items:center;justify-content:center;'+
+    'flex-direction:column;gap:10px;font:15px -apple-system,\'Segoe UI\',Roboto,sans-serif;'+
+    'background:var(--bg);color:var(--txt)">'+
+    '<div style="font-weight:600">Gama has stopped.</div>'+
+    '<div style="color:var(--muted);font-size:13px">You can close this tab.</div></div>';
+}
+$('quitBtn').onclick=quitGama;
+
+// ---- drag and drop -------------------------------------------------------
+// Browsers hand over a dropped file's name but not its path, so the server
+// resolves names against folders already in play. Dragging a recording in from
+// the folder you're working in therefore works; dragging one from an unrelated
+// folder can't, and says so.
+let dragDepth=0;
+function dropOverlay(on){
+  let el=$('dropmask');
+  if(!el){ el=document.createElement('div'); el.id='dropmask'; el.className='dropmask';
+    el.innerHTML='<div class="dropbox">Drop .EDF files to open</div>';
+    document.body.appendChild(el); }
+  el.classList.toggle('show', !!on);
+}
+window.addEventListener('dragenter',e=>{
+  if(!e.dataTransfer || [...e.dataTransfer.types].indexOf('Files')<0) return;
+  e.preventDefault(); dragDepth++; dropOverlay(true);
+});
+window.addEventListener('dragover',e=>{
+  if(!e.dataTransfer || [...e.dataTransfer.types].indexOf('Files')<0) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='copy';
+});
+window.addEventListener('dragleave',e=>{
+  if(dragDepth>0) dragDepth--;
+  if(dragDepth===0) dropOverlay(false);
+});
+window.addEventListener('drop',async e=>{
+  if(!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  e.preventDefault(); dragDepth=0; dropOverlay(false);
+  const names=[...e.dataTransfer.files].map(f=>f.name).filter(n=>/\.edf$/i.test(n));
+  const skipped=e.dataTransfer.files.length-names.length;
+  if(!names.length){ toast(skipped?'Only .EDF files can be opened':'Nothing to open'); return; }
+  const hints=[fbCwd].filter(Boolean);
+  try{
+    const d=await (await fetch('/api/resolve',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({names,hints})})).json();
+    FILES=d.files; buildTabs();
+    if(d.added && d.added.length){
+      await loadFile(d.added[d.added.length-1]);
+      toast('Opened '+d.added.length+' file'+(d.added.length>1?'s':''));
+    }
+    if(d.missing && d.missing.length){
+      toast("Couldn't locate "+d.missing.join(', ')+' — use Open folder instead');
+    }
+  }catch(err){ toast('Could not open dropped files'); }
+});
+
 // ---- update checking ----------------------------------------------------
 // The server does the actual asking (once a day, on a background thread); this
 // only reflects whatever it found.
@@ -1339,7 +1636,7 @@ $('fbWatch').onclick=async()=>{
 function resetSession(){
   cache={}; active=-1; ROWS=[]; META=null; view=[]; disp=[];
   SEL.clear(); anchorPos=-1; selIdx=-1; NOTES={};
-  TRMAP=null; TRRES=null; SUG=null;
+  TRMAP=null; TRRES=null; SUG=null; TRMAPS={}; TRRESS={};
   COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=true; });
   buildColMenu(); buildHead();
   $('details').classList.remove('open');
@@ -1372,7 +1669,8 @@ function showWatchBar(state){
   let bar=$('watchbar');
   if(!bar){
     bar=document.createElement('div'); bar.id='watchbar'; bar.className='watchbar';
-    document.querySelector('header').appendChild(bar);
+    // keep Quit as the last thing in the header
+    document.querySelector('header').insertBefore(bar, $('quitBtn'));
   }
   bar.style.display='flex';
   bar.classList.toggle('off', state==='off');
@@ -1426,12 +1724,106 @@ function buildHead(){
   COLS.forEach((c,i)=>{
     if(c.hidden) return;
     const d=document.createElement('div'); d.className='th'; d.style.width=c.w+'px';
-    d.textContent=c.label;
-    if(sortCol===i) d.innerHTML=c.label+`<span class="ar">${sortDir>0?'▲':'▼'}</span>`;
-    d.onclick=()=>{ sortDir = (sortCol===i)? -sortDir : 1; sortCol=i; apply(); };
+    d.dataset.k=c.k; d.draggable=true;
+    d.innerHTML='<span class="thlab"></span><span class="grip" title="Drag to resize, double-click to fit"></span>';
+    const lab=d.querySelector('.thlab');
+    lab.textContent=c.label;
+    if(sortCol===c.k) lab.innerHTML=escapeHtml(c.label)+'<span class="ar">'+(sortDir>0?'▲':'▼')+'</span>';
+    lab.onclick=()=>{ if(colDragging||colResizing) return;
+      sortDir = (sortCol===c.k)? -sortDir : 1; sortCol=c.k; apply(); };
+    d.querySelector('.grip').addEventListener('mousedown',e=>startColResize(e,c,d));
+    d.querySelector('.grip').addEventListener('dblclick',e=>{ e.stopPropagation(); autoFit(c); });
+    d.addEventListener('dragstart',e=>{ colDragging=c.k;
+      e.dataTransfer.effectAllowed='move';
+      try{ e.dataTransfer.setData('text/plain',c.k); }catch(_){}
+      d.classList.add('dragging'); });
+    d.addEventListener('dragend',()=>{ colDragging=null;
+      document.querySelectorAll('.th').forEach(t=>t.classList.remove('dragging','over')); });
+    d.addEventListener('dragover',e=>{ if(!colDragging||colDragging===c.k) return;
+      e.preventDefault(); e.dataTransfer.dropEffect='move'; d.classList.add('over'); });
+    d.addEventListener('dragleave',()=>d.classList.remove('over'));
+    d.addEventListener('drop',e=>{ e.preventDefault(); d.classList.remove('over');
+      if(colDragging && colDragging!==c.k) moveColumn(colDragging, c.k); });
     el.appendChild(d);
   });
   syncFilterRow();          // keep widths/columns in step; never wipe live inputs
+}
+
+// ---- column resize / reorder ----
+let colDragging=null, colResizing=null;
+const MINW=34;
+function startColResize(e, col, th){
+  e.preventDefault(); e.stopPropagation();
+  colResizing=col;
+  const x0=e.clientX, w0=col.w;
+  const move=ev=>{
+    col.w=Math.max(MINW, Math.round(w0+(ev.clientX-x0)));
+    th.style.width=col.w+'px';
+    layout(); render(); sizeFilterRow();
+  };
+  const up=()=>{
+    document.removeEventListener('mousemove',move);
+    document.removeEventListener('mouseup',up);
+    setTimeout(()=>{ colResizing=null; },0);
+    saveColLayout(); buildHead();
+  };
+  document.addEventListener('mousemove',move);
+  document.addEventListener('mouseup',up);
+}
+// Widen a column to fit what is currently on screen (a sample, not all 78k rows).
+function autoFit(col){
+  const cells=[...document.querySelectorAll('#vport .tr')].slice(0,120)
+    .map(tr=>tr.querySelector('.td[data-k="'+col.k+'"]'));
+  let max=0;
+  const probe=document.createElement('span');
+  probe.style.cssText='position:absolute;visibility:hidden;white-space:pre;font:inherit';
+  document.body.appendChild(probe);
+  probe.textContent=col.label;
+  max=probe.offsetWidth;
+  cells.forEach(td=>{ if(!td) return; probe.textContent=td.textContent;
+    max=Math.max(max, probe.offsetWidth); });
+  probe.remove();
+  col.w=Math.min(720, Math.max(MINW, max+26));
+  saveColLayout(); buildHead(); layout(); render();
+}
+function moveColumn(fromKey, toKey){
+  const from=COLS.findIndex(c=>c.k===fromKey), to=COLS.findIndex(c=>c.k===toKey);
+  if(from<0||to<0||from===to) return;
+  const [c]=COLS.splice(from,1);
+  COLS.splice(to,0,c);
+  saveColLayout(); buildHead(); buildColMenu(); layout(); render();
+}
+function sizeFilterRow(){
+  const inputs=$('cfrow').children;
+  let n=0;
+  COLS.forEach(c=>{ if(c.hidden) return;
+    const cell=inputs[n++]; if(cell) cell.style.width=c.w+'px'; });
+  $('cfrow').style.width=rowWidth()+'px';
+}
+// Column widths, order and visibility persist per browser.
+function saveColLayout(){
+  try{
+    localStorage.setItem('gama.cols', JSON.stringify(
+      COLS.map(c=>({k:c.k, w:c.w, hidden:!!c.hidden}))));
+  }catch(e){}
+}
+function loadColLayout(){
+  let saved;
+  try{ saved=JSON.parse(localStorage.getItem('gama.cols')||'null'); }catch(e){ return; }
+  if(!Array.isArray(saved)) return;
+  const byKey={}; COLS.forEach(c=>byKey[c.k]=c);
+  const out=[];
+  saved.forEach(s=>{ const c=byKey[s.k];
+    if(c && out.indexOf(c)<0){ if(s.w) c.w=Math.max(MINW,s.w);
+      c.hidden=!!s.hidden; out.push(c); } });
+  COLS.forEach(c=>{ if(out.indexOf(c)<0) out.push(c); });   // new columns go last
+  COLS.length=0; out.forEach(c=>COLS.push(c));
+}
+function resetColLayout(){
+  try{ localStorage.removeItem('gama.cols'); }catch(e){}
+  COLS.length=0; DEFAULT_COLS.forEach(c=>COLS.push(Object.assign({},c)));
+  buildHead(); buildColMenu(); layout(); render();
+  toast('Columns reset');
 }
 // The signature of the currently-built filter row: which columns, in what order,
 // at what width. Rebuild the inputs only when this changes, so typing doesn't
@@ -1471,12 +1863,20 @@ let _cfTimer=null;
 function cfApply(){ clearTimeout(_cfTimer); _cfTimer=setTimeout(apply,160); }
 function buildColMenu(){
   const m=$('colmenu'); m.innerHTML='';
+  const hint=document.createElement('div');
+  hint.className='mtitle'; hint.textContent='drag headers to reorder';
+  m.appendChild(hint);
   COLS.forEach((c,i)=>{
     const l=document.createElement('label');
     l.innerHTML=`<input type="checkbox" ${c.hidden?'':'checked'}> ${c.label}`;
-    l.querySelector('input').onchange=e=>{ c.hidden=!e.target.checked; buildHead(); render(); };
+    l.querySelector('input').onchange=e=>{ c.hidden=!e.target.checked;
+      saveColLayout(); buildHead(); layout(); render(); };
     m.appendChild(l);
   });
+  const rst=document.createElement('div');
+  rst.className='mi'; rst.textContent='Reset columns';
+  rst.onclick=()=>{ resetColLayout(); $('colmenu').classList.remove('open'); };
+  m.appendChild(rst);
 }
 
 function makeMatcher(str, isRe){
@@ -1567,7 +1967,8 @@ function apply(){
     view.push(r);
   }
   if(sortCol!==null){
-    const col=COLS[sortCol];
+    const col=COLS.find(c=>c.k===sortCol);
+    if(col){
     view.sort((a,b)=>{
       let x=col.get(a), y=col.get(b);
       if(col.num){ x=parseFloat(x); y=parseFloat(y);
@@ -1575,6 +1976,7 @@ function apply(){
       else { x=(''+x).toLowerCase(); y=(''+y).toLowerCase(); }
       return x<y?-sortDir : x>y?sortDir : 0;
     });
+    }
   }
   // highlight mode: rows stay in place, matches are marked instead
   viewPosByIdx=new Map();
@@ -1705,14 +2107,14 @@ function render(){
       let v=c.get(r); if(v===''||v===undefined||v===null) v='';
       if(c.badge){
         const col=GROUP_COLOR[r[C.grp]]||'#888';
-        html+=`<div class="td" style="width:${c.w}px"><span class="badge" style="background:${col}">${v}</span></div>`;
+        html+=`<div class="td" data-k="${c.k}" style="width:${c.w}px"><span class="badge" style="background:${col}">${v}</span></div>`;
       } else if(c.k==='idx'){
         const chev=isBlockStart?`<span class="chev open" data-collapse="${r[C.block]}" title="Collapse block ${r[C.block]}">\u25BC</span>`:'';
         const mark=nv?`<span class="flagmark${nv.flag?' on':''}" data-flag="${r[C.idx]}" title="${nv.note?escapeHtml(nv.note):'flagged'}">\u2691</span>`:'';
-        html+=`<div class="td idxcell" style="width:${c.w}px">${chev}${mark}<span>${escapeHtml(''+v)}</span></div>`;
+        html+=`<div class="td idxcell" data-k="${c.k}" style="width:${c.w}px">${chev}${mark}<span>${escapeHtml(''+v)}</span></div>`;
       } else {
         const cls='td'+(c.msg?' msg':'');
-        html+=`<div class="${cls}" style="width:${c.w}px">${escapeHtml(''+v)}</div>`;
+        html+=`<div class="${cls}" data-k="${c.k}" style="width:${c.w}px">${escapeHtml(''+v)}</div>`;
       }
     }
     html+='</div>';
@@ -1957,7 +2359,9 @@ $('savePreset').onclick=async()=>{
 // convention; the dropdowns are filled from whatever this recording contains.
 let SUG=null;                 // suggestion payload for the active file
 let TRVARS=[];                // extra variable messages chosen by the user
-let TRMAP=null;               // {trial:[], aoi:[], from:[]} keyed by row idx
+let TRMAP=null;               // the active file's row->trial/AOI mapping
+let TRMAPS={};                // per file id, so switching tabs can't mix them up
+let TRRESS={};                // per file id: the full analysis result
 let TRRES=null;               // last full analysis result
 let TRSCHEMES={};
 
@@ -1989,6 +2393,9 @@ async function trLoadSuggestions(){
   if(R.window_from&&R.window_to) $('trWinOn').checked=true;
   $('trStatus').textContent=`${cands.length} message types found`;
   trSyncExamples();
+  // Draw the little map straight away so the regions are visible on the setup
+  // tab itself, rather than being something you must know to go looking for.
+  if(R.start && R.aoi) trMiniPreview();
 }
 
 function trCand(name){ return (SUG&&SUG.candidates||[]).find(c=>c.name===name); }
@@ -2010,7 +2417,10 @@ function trShowEx(elId,name){
   el.innerHTML='e.g. <b>'+escapeHtml(c.example.slice(0,110))+'</b>';
 }
 
+const trMiniSoon=(()=>{ let h; return ()=>{ clearTimeout(h); h=setTimeout(trMiniPreview,250); }; })();
 function trSyncExamples(){
+  if($('trPvBody')) delete $('trPvBody').dataset.filled;
+  trMiniSoon();
   trShowEx('trStartEx',trMarkerOf('trStart','trStartCustom'));
   trShowEx('trEndEx',trMarkerOf('trEnd','trEndCustom'));
   const aoi=trMarkerOf('trAoi','trAoiCustom');
@@ -2063,7 +2473,7 @@ function trShapeArgs(){
       fields.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f;s.appendChild(o);}); });
   }
   ['trRadius','trW','trH','trMaxD'].forEach(id=>{ const e=$(id);
-    if(e) e.oninput=()=>{ trOpt.radius=+($('trRadius')?$('trRadius').value:trOpt.radius)||trOpt.radius;
+    if(e) e.oninput=()=>{ trMiniSoon(); trOpt.radius=+($('trRadius')?$('trRadius').value:trOpt.radius)||trOpt.radius;
       trOpt.w=+($('trW')?$('trW').value:trOpt.w)||trOpt.w;
       trOpt.h=+($('trH')?$('trH').value:trOpt.h)||trOpt.h;
       trOpt.maxd=+($('trMaxD')?$('trMaxD').value:trOpt.maxd)||trOpt.maxd; }; });
@@ -2164,6 +2574,67 @@ function trWarnBox(res){
     escapeHtml(w.slice(0,5).join('; '))+'</div>';
 }
 
+// A small to-scale picture of one trial: the AOI regions as gama will test them,
+// and the fixations that fell in the window. Makes a wrong radius obvious.
+function trPlot(t, screen){
+  const W=360, H=Math.round(W*((screen&&screen.h)||1080)/((screen&&screen.w)||1920));
+  const sw=(screen&&screen.w)||1920, sh=(screen&&screen.h)||1080;
+  const sx=v=>(v/sw)*W, sy=v=>(v/sh)*H;
+  const shape=$('trShape').value;
+  const rad=+($('trRadius')||{}).value||trOpt.radius;
+  const rw=+($('trW')||{}).value||trOpt.w, rh=+($('trH')||{}).value||trOpt.h;
+  let g='';
+  (t.aois||[]).forEach(a=>{
+    const cx=sx(a.x), cy=sy(a.y);
+    if(shape==='rect'||(shape==='fields'&&a.w&&a.h)){
+      const w=sx(a.w||rw), h=sy(a.h||rh);
+      g+=`<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" class="aoi"/>`;
+    } else {
+      const r=sx(a.r||rad);
+      g+=`<circle cx="${cx}" cy="${cy}" r="${r}" class="aoi"/>`;
+    }
+    g+=`<circle cx="${cx}" cy="${cy}" r="2" class="aoic"/>`;
+    g+=`<text x="${cx}" y="${cy-4}" class="aoit">${escapeHtml(a.label)}</text>`;
+  });
+  (t.fixations||[]).forEach((f,i)=>{
+    const cls=f.aoi?'fix hit':'fix miss';
+    g+=`<circle cx="${sx(f.x)}" cy="${sy(f.y)}" r="${Math.max(2,Math.min(7,Math.sqrt((f.dur||60)/12)))}" class="${cls}"><title>fix ${i+1}: ${f.aoi||'no AOI'} (${f.dur||0} ms)</title></circle>`;
+  });
+  const hit=(t.fixations||[]).filter(f=>f.aoi).length, tot=(t.fixations||[]).length;
+  return `<div class="plotwrap"><svg viewBox="0 0 ${W} ${H}" class="trplot">`+
+    `<rect x="0" y="0" width="${W}" height="${H}" class="screen"/>${g}</svg>`+
+    `<div class="plotkey">${sw}\u00d7${sh} screen \u00b7 `+
+    `<span class="k hit"></span>in an AOI (${hit}) `+
+    `<span class="k miss"></span>no AOI (${tot-hit})</div></div>`;
+}
+
+// A single trial drawn on the setup tab, so the effect of the region size is
+// visible while you are choosing it.
+let trMiniBusy=false;
+async function trMiniPreview(){
+  if(trMiniBusy) return;
+  const scheme=trBuildScheme();
+  if(!scheme.start || !scheme.aoi){ return; }
+  trMiniBusy=true;
+  try{
+    const r=await fetch('/api/trials/run',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({file:active, scheme, limit:3, preview:true})});
+    const res=await r.json();
+    if(res.error || !res.trials_preview || !res.trials_preview.length){
+      $('trMiniInfo').textContent=res.error||'No trials found with these settings.';
+      $('trMiniPic').innerHTML=''; return;
+    }
+    const t=res.trials_preview.find(x=>x.aois&&x.aois.length)||res.trials_preview[0];
+    $('trMiniPic').innerHTML=(t.aois&&t.aois.length)?trPlot(t,res.screen):'';
+    const hit=(t.fixations||[]).filter(f=>f.aoi).length, tot=(t.fixations||[]).length;
+    $('trMiniInfo').innerHTML=`Trial ${t.n}: <b>${t.n_aoi}</b> region`+(t.n_aoi===1?'':'s')+
+      `, <b>${hit}</b> of ${tot} fixations landed in one.`+
+      (tot&&!hit?' <span style="color:#e05252">Nothing matched — the size is probably too small.</span>':'');
+  }catch(e){ /* leave the previous drawing in place */ }
+  finally{ trMiniBusy=false; }
+}
+
 async function trDoPreview(){
   const res=await trRun(true); if(!res) return;
   trTab('preview');
@@ -2175,25 +2646,68 @@ async function trDoPreview(){
     const aois=t.aois.map(a=>`${escapeHtml(a.label)}(${a.x},${a.y})`).join('  ');
     h+=`<div class="tcard"><h4>Trial ${t.n} · ${t.t_start}–${t.t_end}`+
       (t.win[0]?` · window ${t.win[0]}–${t.win[1]}`:'')+`</h4>`+
+      `<div class="tcardbody"><div class="tcardinfo">`+
       `<div class="kvs">${vars||'<i>no variables parsed</i>'}</div>`+
-      `<div class="kvs">${t.n_aoi} AOI: ${escapeHtml(aois)||'<i>none</i>'}</div></div>`;
+      `<div class="kvs">${t.n_aoi} AOI: ${escapeHtml(aois)||'<i>none</i>'}</div></div>`+
+      (t.aois&&t.aois.length?trPlot(t,res.screen):'')+`</div></div>`;
   });
-  $('trPvBody').innerHTML=h;
+  $('trPvBody').innerHTML=h; $('trPvBody').dataset.filled='1';
   $('trStatus').textContent=`${n.toLocaleString()} trials`;
+}
+
+function trShowColumns(){
+  COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
+  saveColLayout(); buildColMenu(); buildHead();
+}
+function trStore(fileId, res){
+  TRMAPS[fileId]={trial:res.row_trial, aoi:res.row_aoi, from:res.row_aoi_from};
+  TRRESS[fileId]=res;
+  if(fileId===active){ TRMAP=TRMAPS[fileId]; TRRES=res; }
 }
 
 async function trDoApply(){
   const res=await trRun(false); if(!res) return;
-  TRRES=res;
-  TRMAP={trial:res.row_trial, aoi:res.row_aoi, from:res.row_aoi_from};
-  // reveal the Trial / AOI columns
-  COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
-  buildColMenu(); buildHead(); apply();
-  trShowResults(res);
-  trTab('results');
+  trStore(active, res);
+  trShowColumns(); apply();
+  trShowResults(res); trTab('results');
+  buildTabs();
   $('trStatus').innerHTML=`<span class="trok">Applied — ${res.n_trials.toLocaleString()} trials, `+
     `${res.matched_fix.toLocaleString()} events matched to an AOI</span>`;
   toast(`${res.n_trials.toLocaleString()} trials applied`);
+}
+
+// Run the same scheme over every open recording. Each file is analysed on the
+// server in turn, which also primes its export cache, so a later "export all"
+// carries the trial columns for every file.
+let trCancel=false;
+async function trApplyAll(){
+  const scheme=trBuildScheme();
+  if(!scheme.start){ toast('Choose a trial-start message first'); return; }
+  if(!FILES.length){ toast('No files open'); return; }
+  trCancel=false;
+  const btn=$('trApplyAll'); btn.textContent='Stop';
+  btn.onclick=()=>{ trCancel=true; };
+  let done=0, failed=0, trials=0;
+  for(const f of FILES.slice()){
+    if(trCancel) break;
+    $('trStatus').textContent=`Analysing ${f.name} (${done+1} of ${FILES.length})…`;
+    try{
+      const r=await fetch('/api/trials/run',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({file:f.id, scheme})});
+      const res=await r.json();
+      if(res && !res.error && res.row_trial){ trStore(f.id,res); trials+=res.n_trials||0; done++; }
+      else failed++;
+    }catch(e){ failed++; }
+    buildTabs();
+  }
+  btn.textContent='Apply to all files'; btn.onclick=trApplyAll;
+  trShowColumns(); apply();
+  if(TRRESS[active]){ trShowResults(TRRESS[active]); trTab('results'); }
+  const msg=`${done} file${done===1?'':'s'} analysed, ${trials.toLocaleString()} trials`+
+            (failed?`, ${failed} failed`:'')+(trCancel?' (stopped)':'');
+  $('trStatus').innerHTML=`<span class="trok">${escapeHtml(msg)}</span>`;
+  toast(msg);
 }
 
 function trShowResults(res){
@@ -2212,6 +2726,11 @@ function trTab(name){
   $('trSetup').style.display   = name==='setup'?'block':'none';
   $('trPreview').style.display = name==='preview'?'block':'none';
   $('trResults').style.display = name==='results'?'block':'none';
+  // Landing on an empty tab looks broken, so fill it on arrival.
+  if(name==='preview' && !$('trPvBody').dataset.filled) trDoPreview();
+  if(name==='results' && !$('trResBody').innerHTML)
+    $('trResInfo').textContent='Nothing applied yet — use "Apply to table" to run '+
+      'the analysis and see the per-trial table.';
 }
 
 async function trRefreshSchemes(){
@@ -2232,11 +2751,12 @@ document.querySelectorAll('.trtab').forEach(t=>t.onclick=()=>trTab(t.dataset.t))
   const el=$(id); if(!el) return;
   el.addEventListener(el.tagName==='SELECT'||el.type==='checkbox'?'change':'input',trSyncExamples);
 });
-$('trShape').onchange=trShapeArgs;
+$('trShape').onchange=()=>{ trShapeArgs(); trMiniSoon(); };
 $('trVarAdd').onclick=()=>{ const v=$('trVarPick').value;
   if(v && !TRVARS.includes(v)){ TRVARS.push(v); trChips(); } };
 $('trPreviewBtn').onclick=trDoPreview;
 $('trApply').onclick=trDoApply;
+$('trApplyAll').onclick=trApplyAll;
 $('trScheme').onchange=e=>{ const s=TRSCHEMES[e.target.value]; if(s) trApplyScheme(s); };
 $('trSave').onclick=async()=>{
   const name=prompt('Save this scheme as:', $('trScheme').value||'my experiment');
@@ -2280,6 +2800,8 @@ function paletteActions(){
     enabled:opts.always?true:(opts.needFile===false?true:haveFile)});
   // files
   add('Open a folder…','File',()=>openBrowser(),{always:true,key:'Ctrl+O'});
+  add('Quit gama','File',()=>quitGama(),{always:true});
+  if(FILES.length>1) add('Jump to a file…','Tab',()=>toggleFilePicker(),{always:true});
   add('Watch a folder for new recordings…','File',()=>openBrowser(),{always:true});
   if(watchTimer) add('Stop watching folder','File',()=>stopWatching(),{always:true});
   else add('Start watching a folder…','File',()=>openBrowser(),{always:true});
@@ -2320,6 +2842,7 @@ function paletteActions(){
   add('Text size: medium','View',()=>setFont('m'),{always:true});
   add('Text size: large','View',()=>setFont('l'),{always:true});
   add('Columns menu','View',()=>$('colsBtn').click(),{always:true});
+  add('Reset column widths and order','View',()=>resetColLayout(),{always:true});
   // help
   add('About / Help','Help',()=>{loadInfo();$('aboutMask').classList.add('open');},{always:true,key:'?'});
   add('Copy diagnostics','Help',()=>$('copyDiag').click(),{always:true});

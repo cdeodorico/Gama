@@ -18,7 +18,7 @@ from .exports import (export_bytes, _opts_from_json, _provenance_bytes,
                       _esc, _HTML_DOC)
 from .notes import save_notes, _notes_path
 from .preset_store import (_load_presets, _save_preset, _delete_preset,
-                      _schemes_dir)
+                      _schemes_dir, load_recent, add_recent, clear_recent)
 from .files import (Registry, Watcher, _ensure_parsed,
                     browse_dir, list_edfs, _is_edf)
 from .trials import suggest_markers, analyse_trials
@@ -27,7 +27,8 @@ from . import updates
 
 
 
-def make_handler(reg, converted_from_line, presets_dir, watcher):
+def make_handler(reg, converted_from_line, presets_dir, watcher,
+                 shutdown=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -77,6 +78,8 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._json(watcher.status())
             elif route == "/api/update":
                 self._json(updates.status())
+            elif route == "/api/recent":
+                self._json({"recent": load_recent(presets_dir)})
             elif route == "/api/schemes":
                 self._json(_load_presets(_schemes_dir(presets_dir)))
             elif route == "/api/presets":
@@ -133,6 +136,8 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._open_files()
             elif route == "/api/open_folder":
                 self._open_folder()
+            elif route == "/api/resolve":
+                self._resolve_names()
             elif route == "/api/watch":
                 self._watch()
             elif route == "/api/close":
@@ -143,6 +148,10 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._schemes_write()
             elif route == "/api/update":
                 self._update_write()
+            elif route == "/api/recent":
+                self._recent_write()
+            elif route == "/api/quit":
+                self._quit()
             elif route == "/api/trials/suggest":
                 self._trials_suggest()
             elif route == "/api/trials/run":
@@ -151,6 +160,28 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 self._trials_export()
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def _recent_write(self):
+            req = self._body()
+            if req.get("action") == "clear":
+                self._json({"recent": clear_recent(presets_dir)})
+                return
+            paths = [p for p in req.get("paths", [])
+                     if os.path.isfile(p) and _is_edf(p)]
+            added = [reg.add(p) for p in paths]
+            if paths:
+                add_recent(presets_dir, paths)
+            self._json({"files": reg.listing(), "added": added,
+                        "recent": load_recent(presets_dir)})
+
+        def _quit(self):
+            """Shut the server down so the console window can close cleanly."""
+            self._json({"ok": True})
+            watcher.stop()
+            if shutdown:
+                # shutdown() blocks until the serve loop ends, so it cannot run
+                # on this request's own thread
+                threading.Thread(target=shutdown, daemon=True).start()
 
         def _update_write(self):
             req = self._body()
@@ -274,8 +305,52 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                     added.append(reg.add(p))
                 else:
                     skipped.append(p)
+            if added:
+                add_recent(presets_dir, [p for p in req.get("paths", [])
+                                         if os.path.isfile(p) and _is_edf(p)])
             self._json({"files": reg.listing(), "added": added,
                         "skipped": skipped})
+
+        def _resolve_names(self):
+            """Find dropped files by name.
+
+            A browser hands over a file's name but not its path, so a drop can
+            only be honoured if we can work out where the file actually is.  We
+            look in the folders already in play -- the ones holding open files,
+            the watched folder, and any hints the page passes on -- which covers
+            dragging from the folder you are already working in.
+            """
+            req = self._body()
+            names = [os.path.basename(n) for n in req.get("names", []) if n]
+            roots = []
+            for h in req.get("hints", []):
+                if h and os.path.isdir(h):
+                    roots.append(os.path.abspath(h))
+            for e in reg.entries():
+                d = os.path.dirname(e.path)
+                if d not in roots:
+                    roots.append(d)
+            w = watcher.status().get("folder")
+            if w and w not in roots:
+                roots.append(w)
+            found, missing = [], []
+            for n in names:
+                hit = None
+                for root in roots:
+                    p = os.path.join(root, n)
+                    if os.path.isfile(p) and _is_edf(p):
+                        hit = p
+                        break
+                if hit:
+                    found.append(hit)
+                else:
+                    missing.append(n)
+            added = [reg.add(p) for p in found]
+            if found:
+                add_recent(presets_dir, found)
+            self._json({"files": reg.listing(), "added": added,
+                        "resolved": found, "missing": missing,
+                        "roots": roots})
 
         def _open_folder(self):
             req = self._body()
@@ -283,6 +358,8 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
             recursive = bool(req.get("recursive"))
             paths = list_edfs(folder, recursive)
             added = [reg.add(p) for p in paths]
+            if paths:
+                add_recent(presets_dir, paths)
             self._json({"files": reg.listing(), "added": added,
                         "folder": os.path.abspath(folder) if folder else None,
                         "count": len(added)})
@@ -302,7 +379,10 @@ def make_handler(reg, converted_from_line, presets_dir, watcher):
                 reg.clear()
             added = []
             if req.get("open_existing", True):
-                added = [reg.add(p) for p in list_edfs(folder, recursive)]
+                existing = list_edfs(folder, recursive)
+                added = [reg.add(p) for p in existing]
+                if existing:
+                    add_recent(presets_dir, existing)
             watcher.start(folder, recursive)
             self._json({"files": reg.listing(), "added": added,
                         "watch": watcher.status()})
@@ -386,16 +466,27 @@ def serve(paths, converted_from_line, port, open_browser, presets_dir):
     reg = Registry()
     for p in paths:
         reg.add(p)
-    watcher = Watcher(reg)
+    if paths:
+        add_recent(presets_dir, paths)
+    watcher = Watcher(reg, on_add=lambda p: add_recent(presets_dir, [p]))
     # a quiet, once-a-day look at GitHub for a newer release
     updates.start_background(os.path.dirname(os.path.abspath(presets_dir)))
     try:
         os.makedirs(presets_dir, exist_ok=True)
     except OSError:
         pass
+    holder = {}
+
+    def _shutdown():
+        print("\nQuit requested from the browser. Shutting down.", flush=True)
+        h = holder.get("httpd")
+        if h:
+            h.shutdown()
+
     httpd = ThreadingHTTPServer(
         ("127.0.0.1", port),
-        make_handler(reg, converted_from_line, presets_dir, watcher))
+        make_handler(reg, converted_from_line, presets_dir, watcher, _shutdown))
+    holder["httpd"] = httpd
     url = f"http://127.0.0.1:{httpd.server_address[1]}/"
     n = len(paths)
     print(f"EDF Explorer: {n} file(s) preloaded"

@@ -206,8 +206,11 @@ class Watcher:
     avoids opening a recording that is still being written.
     """
 
-    def __init__(self, reg):
+    def __init__(self, reg, on_add=None):
         self.reg = reg
+        # called with the path of every file the watcher opens by itself, so the
+        # caller can record it (the watcher can't see the presets folder)
+        self.on_add = on_add
         self.folder = None
         self.recursive = False
         self._known = {}          # path -> last seen size
@@ -293,6 +296,11 @@ class Watcher:
                     self.reg.add(p)
                     self._known[p] = sz
                     self._pending.pop(p, None)
+                    if self.on_add:
+                        try:
+                            self.on_add(p)
+                        except Exception:
+                            pass          # recording a recent file is optional
                     print(f"[watch] opened new file: {os.path.basename(p)}",
                           flush=True)
                 else:
