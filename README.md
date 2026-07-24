@@ -12,7 +12,7 @@ Through multiple filters one can extract what they actually care about.
 
 In our lab, the usual loop was: run `edf2asc` and convert the `.EDF` to a readable `.ASC`, open that `.ASC` in a text editor or Excel, then analyse through macros or other means. The excel import function that we became acustomed to tending to not respect column contexts, most likely because the converter did neither. Additionally, if one was not interested in using the Experiment Viewer paid software, extra lines were included that could cloud data. Gama does the conversion in memory and gives you filters instead.
 
-The conversion is not a re-implementation of the native converter (Far too difficult, and most likely breaches copyright). Instead, Gama drives the real `edfapi` through ctypes, and the output is byte-for-byte identical to `edf2asc` (if you output `.ASC`) on the files I've tested (same md5). If you export everything with no filters you get exactly the file `edf2asc` would have produced, so nothing downstream needs to change.
+The conversion is not a re-implementation of the native converter (Far too difficult, and most likely breaches copyright). Instead, Gama uses the real `edfapi` through ctypes, and the output is byte-for-byte identical to `edf2asc` (if you output `.ASC`) on the files I've tested (same md5). If the API is not present on the local machine, Gama will stead use the `eyelinkio` python package. If you export everything with no filters you get exactly the file `edf2asc` would have produced, so nothing downstream needs to change.
 
 ## Requirements
 
