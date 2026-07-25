@@ -442,13 +442,17 @@ def analyse_trials(rows, parsed, spec, limit=None):
         fixes, saccs = [], []
         for i in range(tr["start_i"], min(tr["end_i"], n_rows - 1) + 1):
             r = rows[i]
+            # Every line between the markers belongs to the trial, messages
+            # included: that is what the Trial column, trial-relative
+            # timestamps and "go to trial" all read.  Only eye events go on to
+            # be matched against the AOIs.
+            row_trial[i] = tr["n"]
             grp = r[I_GRP]
             if grp not in ("FIX", "SACC"):
                 continue
             t = r[I_START]
             if not isinstance(t, int):
                 continue
-            row_trial[i] = tr["n"]
             if lo is not None and t < lo:
                 continue
             if hi is not None and t > hi:
@@ -549,8 +553,35 @@ def analyse_trials(rows, parsed, spec, limit=None):
         tr.pop("_fixes", None)
         tr.pop("_saccs", None)
 
+    # Four things the summary alone does not give the table cheaply: each
+    # trial's variables, the timestamps a row can be shown relative to, the
+    # lines the trial occupies (so drawing one trial does not mean walking the
+    # whole recording), and its stimulus positions.  The AOIs go out as plain
+    # arrays rather than objects: on a thousand-trial file the difference in
+    # payload is worth the two lines of unpacking at the other end.
+    trial_vars = {}
+    trial_times = {}
+    trial_span = {}
+    trial_aois = {}
+    for tr in trials:
+        if var_names:
+            trial_vars[tr["n"]] = [tr["vars"].get(k, "") for k in var_names]
+        trial_times[tr["n"]] = [tr["t_start"], tr.get("win_start"),
+                                tr.get("win_end"), tr["t_end"]]
+        trial_span[tr["n"]] = [tr["start_i"], tr["end_i"]]
+        if tr["aois"]:
+            trial_aois[tr["n"]] = [[a["label"], a["x"], a["y"],
+                                    a.get("w"), a.get("h"), a.get("r")]
+                                   for a in tr["aois"]]
+
     return {
         "n_trials": len(trials),
+        "var_names": var_names,
+        "trial_vars": trial_vars,
+        "trial_times": trial_times,
+        "trial_span": trial_span,
+        "trial_aois": trial_aois,
+        "aoi_shape": shape,
         "row_trial": row_trial,
         "row_aoi": row_aoi,
         "row_aoi_from": row_aoi_from,

@@ -221,7 +221,9 @@ def make_handler(reg, converted_from_line, presets_dir, watcher,
             if not req.get("preview") and "row_trial" in res:
                 entry.trials = {"row_trial": res["row_trial"],
                                 "row_aoi": res["row_aoi"],
-                                "row_aoi_from": res["row_aoi_from"]}
+                                "row_aoi_from": res["row_aoi_from"],
+                                "var_names": res.get("var_names") or [],
+                                "trial_vars": res.get("trial_vars") or {}}
             if req.get("preview"):
                 res.pop("row_trial", None)
                 res.pop("row_aoi", None)

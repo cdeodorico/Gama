@@ -69,6 +69,20 @@ def export_asc(records, indices):
 
 
 
+def _trial_var_values(trials, tn, n):
+    """This row's trial variables, blank when the row is outside any trial."""
+    if tn is None or tn <= 0:
+        return [""] * n
+    tv = trials.get("trial_vars") or {}
+    vals = tv.get(tn)
+    if vals is None:
+        vals = tv.get(str(tn))          # survives a round trip through JSON
+    if not vals:
+        return [""] * n
+    return list(vals[:n]) + [""] * max(0, n - len(vals))
+
+
+
 def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
                  notes=None, trials=None):
     import csv
@@ -77,9 +91,10 @@ def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
     has_tr = bool(trials)
     buf = StringIO()
     w = csv.writer(buf, delimiter=delimiter, lineterminator="\n")
+    tvars = (trials or {}).get("var_names") or []
     header = list(EXPORT_COLUMNS)
     if has_tr:
-        header += ["trial", "aoi", "aoi_from"]
+        header += ["trial", "aoi", "aoi_from"] + list(tvars)
     if has_notes:
         header += ["flagged", "note"]
     w.writerow(header)
@@ -103,6 +118,8 @@ def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
             row += [tn if tn > 0 else "",
                     trials["row_aoi"][i] if i < len(trials["row_aoi"]) else "",
                     trials["row_aoi_from"][i] if i < len(trials["row_aoi_from"]) else ""]
+            if tvars:
+                row += _trial_var_values(trials, tn, len(tvars))
         if has_notes:
             nv = notes.get(str(i))
             if nv:
@@ -151,9 +168,10 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
     notes = notes or {}
     has_notes = bool(notes)
     has_tr = bool(trials)
+    tvars = (trials or {}).get("var_names") or []
     cols = list(EXPORT_COLUMNS)
     if has_tr:
-        cols += ["trial", "aoi", "aoi_from"]
+        cols += ["trial", "aoi", "aoi_from"] + list(tvars)
     if has_notes:
         cols += ["flagged", "note"]
     head = "".join(f"<th>{_esc(c)}</th>" for c in cols)
@@ -179,6 +197,9 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
             tds += "<td>%s</td>" % _esc(tn if tn > 0 else "")
             tds += "<td>%s</td>" % _esc(trials["row_aoi"][i] if i < len(trials["row_aoi"]) else "")
             tds += "<td>%s</td>" % _esc(trials["row_aoi_from"][i] if i < len(trials["row_aoi_from"]) else "")
+            if tvars:
+                for v in _trial_var_values(trials, tn, len(tvars)):
+                    tds += "<td>%s</td>" % _esc(v)
         nv = notes.get(str(i)) if has_notes else None
         if has_notes:
             flag_mark = "\u2691" if (nv and nv.get("flag")) else ""

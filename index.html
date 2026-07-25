@@ -85,6 +85,39 @@
   .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
     display:none;align-items:center;justify-content:center}
   .mask.open{display:flex}
+  /* scanpath & aggregate map */
+  .mapdlg{width:min(900px,95vw);height:min(700px,92vh);position:relative}
+  .mapbody{flex:1;overflow:auto;padding:10px 14px 14px}
+  .mapsvg{width:100%;height:auto;display:block;border-radius:6px}
+  .mapsvg .screen{fill:var(--bg);stroke:var(--line)}
+  .mapsvg .aoi{fill:rgba(91,157,255,.10);stroke:var(--accent);stroke-width:1}
+  .mapsvg .aoit{fill:var(--muted);font-size:9px;text-anchor:middle}
+  .mapsvg .sacc{stroke:var(--muted);stroke-width:1.3;opacity:.8;fill:none}
+  .mapsvg .sacc.out{opacity:.3;stroke-dasharray:3 3}
+  .mapsvg .fix{stroke:var(--panel);stroke-width:1;cursor:pointer}
+  .mapsvg .fix.hit{fill:var(--accent2)}
+  .mapsvg .fix.miss{fill:#e05252}
+  .mapsvg .fix.out{opacity:.35}
+  .mapsvg .spnum{fill:var(--bg);font-size:8.5px;font-weight:700;
+    text-anchor:middle;pointer-events:none}
+  .mapsvg .heat{shape-rendering:crispEdges;stroke:none}
+  .mapsvg .cross{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4}
+  .maprow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .mapside{flex:1;min-width:200px;font-size:11.5px}
+  .mapside h4{margin:0 0 4px;font-size:11px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.04em}
+  .mapside table{border-collapse:collapse;width:100%;margin-bottom:10px}
+  .mapside td{padding:2px 6px 2px 0;border-bottom:1px solid var(--gridline);
+    font-variant-numeric:tabular-nums}
+  .mapside td.k{color:var(--muted);white-space:nowrap}
+  .mapnote{color:var(--muted);font-size:11px;margin:8px 0 0}
+  .mapscale{display:flex;align-items:center;gap:6px;margin:6px 0 10px;
+    font-size:10.5px;color:var(--muted)}
+  .mapscale .bar{flex:1;height:8px;border-radius:4px;
+    background:linear-gradient(90deg,rgba(54,192,143,.10),rgba(54,192,143,1))}
+  .mapchips{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}
+  .mapchips span{background:var(--panel2);border:1px solid var(--line);
+    border-radius:9px;padding:1px 7px;font-size:11px}
   /* trials & AOI panel */
   .trdlg{width:min(880px,95vw);height:min(660px,92vh);position:relative}
   .trtabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line)}
@@ -340,7 +373,8 @@
   .findbar .n{color:var(--muted);font-size:11px;flex:1;
     font-variant-numeric:tabular-nums}
   .findbar .btn{padding:2px 7px;line-height:1.2}
-  #goto{width:92px;margin:0;text-align:center}
+  #goto{width:80px;margin:0;text-align:center}
+  #gotoMode{width:auto;margin:0;padding:3px 4px}
   .td{flex:none;padding:0 8px;height:var(--rowh);line-height:var(--rowh);
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
     font-variant-numeric:tabular-nums;border-right:1px solid var(--gridline)}
@@ -385,8 +419,13 @@
     <span class="count" id="count"></span>
     <a class="updpill" id="updPill" target="_blank" rel="noopener"></a>
     <span class="spacer"></span>
+    <select id="gotoMode" title="Jump by line number, or by trial once trials are classified">
+      <option value="line">Line</option>
+      <option value="trial" disabled>Trial</option>
+    </select>
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
     <button class="btn" id="trialsBtn" title="Segment trials and match fixations to areas of interest">Trials ▾</button>
+    <button class="btn" id="mapBtn" title="Draw the selected trial's scanpath, or a map of the filtered set">Map</button>
     <button class="btn" id="collapseBtn" title="Collapse each recording block to one summary row">Collapse blocks</button>
     <button class="btn" id="filtBtn" title="Show per-column filter row">Filters ▾</button>
     <button class="btn" id="colsBtn">Columns ▾</button>
@@ -429,6 +468,8 @@
       <select id="tsMode">
         <option value="abs">Absolute</option>
         <option value="rel">Relative to file start</option>
+        <option value="trial" disabled>Relative to trial start</option>
+        <option value="win" disabled>Relative to window onset</option>
       </select>
 
       <h3>Time range</h3>
@@ -506,6 +547,27 @@
         <input type="checkbox" id="sidecarChk"> include provenance .json
       </label>
     </div>
+  </div>
+</div>
+
+<div class="mask" id="mapMask">
+  <div class="dlg mapdlg">
+    <header style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <h2 style="flex:1;min-width:120px" id="mapTitle">Map</h2>
+      <select id="mapMode" style="width:auto;margin:0">
+        <option value="scan">Trial scanpath</option>
+        <option value="agg">Aggregate over the filtered set</option>
+      </select>
+      <select id="mapMetric" style="width:auto;margin:0" title="What the shading counts">
+        <option value="count">by fixation count</option>
+        <option value="dwell">by dwell time</option>
+      </select>
+      <button class="btn sm" id="mapPrev" title="Previous trial">◀</button>
+      <button class="btn sm" id="mapNext" title="Next trial">▶</button>
+      <button class="btn sm" id="mapSave" title="Save the drawing as an SVG file">Save SVG</button>
+      <button class="btn sm" id="mapCloseBtn" title="Close (Esc)">✕</button>
+    </header>
+    <div class="mapbody" id="mapBody"></div>
   </div>
 </div>
 
@@ -971,14 +1033,34 @@ const C = {idx:0,cat:1,grp:2,mkind:3,start:4,end:5,dur:6,eye:7,x1:8,y1:9,
 const GROUPS=['PREAMBLE','HEADER','END','INPUT','MSG','FIX','SACC','BLINK'];
 const KINDS=['experiment','config','cal','draw'];
 
-let REL=false, TREF=0;
-function tdisp(v){ return (REL && typeof v==='number') ? v-TREF : v; }
+// Timestamps can be shown four ways: as recorded, minus the file's first
+// timestamp, or — once trials have been classified — minus the start of the
+// row's own trial or the onset of its analysis window. The last two need the
+// row, not just the value, so every timestamp getter passes it in.
+let TSMODE='abs', TREF=0;
+let REL=false;                // kept in step with TSMODE for the export payload
+function tbase(r){
+  if(TSMODE==='rel') return TREF;
+  if(!TRMAP||!TRI) return null;
+  const t=TRI.t0.get(TRMAP.trial[r[C.idx]]);
+  if(!t) return null;
+  const b=(TSMODE==='win' && t[1]!=null) ? t[1] : t[0];
+  return (typeof b==='number') ? b : null;
+}
+function tdisp(v,r){
+  if(TSMODE==='abs' || typeof v!=='number') return v;
+  // Some rows are not rows at all — a collapsed block spans many trials — so
+  // without one to look up, the trial-based modes fall back to as recorded.
+  if(!r) return (TSMODE==='rel') ? v-TREF : v;
+  const b=tbase(r);
+  return b===null ? '' : v-b;      // outside every trial there is nothing to subtract
+}
 
 const COLS = [
   {k:'idx',  label:'#',     w:64,  num:true,  get:r=>r[C.idx]},
   {k:'cat',  label:'Type',  w:92,  badge:true,get:r=>r[C.cat]},
-  {k:'start',label:'Start', w:100, num:true,  get:r=>tdisp(r[C.start])},
-  {k:'end',  label:'End',   w:100, num:true,  get:r=>tdisp(r[C.end])},
+  {k:'start',label:'Start', w:100, num:true,  get:r=>tdisp(r[C.start],r)},
+  {k:'end',  label:'End',   w:100, num:true,  get:r=>tdisp(r[C.end],r)},
   {k:'dur',  label:'Dur',   w:58,  num:true,  get:r=>r[C.dur]},
   {k:'eye',  label:'Eye',   w:46,            get:r=>r[C.eye]},
   {k:'x1',   label:'X1',    w:74,  num:true,  get:r=>r[C.x1]},
@@ -1183,7 +1265,8 @@ async function loadFile(id){
   }
   active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
   // trial/AOI results belong to one file; never show one file's against another's
-  TRMAP=TRMAPS[id]||null; TRRES=TRRESS[id]||null;
+  TRMAP=TRMAPS[id]||null; TRRES=TRRESS[id]||null; TRI=TRIDX[id]||null;
+  syncVarCols(); syncTsModes();
   selIdx=-1; SEL.clear(); anchorPos=-1; expanded.clear(); $('details').classList.remove('open');
   $('fname').textContent=META.filename;
   await loadNotes(id);
@@ -1326,10 +1409,42 @@ function gotoLine(n){
   selectRow(r[C.idx],dpos,false,false);
   scrollToPos(dpos);
 }
+// Once trials are classified the same box jumps by trial instead, which is how
+// you actually navigate a thousand-trial recording.
+function gotoTrial(n){
+  if(!TRMAP||!TRI){ toast('Classify trials first (Trials ▾)'); return; }
+  if(!view.length) return;
+  let pos=view.findIndex(r=>TRMAP.trial[r[C.idx]]===n);
+  if(pos<0){
+    let best=-1, bd=null;
+    for(let i=0;i<view.length;i++){
+      const tn=TRMAP.trial[view[i][C.idx]];
+      if(!(tn>0)) continue;
+      const d=Math.abs(tn-n);
+      if(bd===null||d<bd){ bd=d; best=i; }
+    }
+    if(best<0){ toast('No trials in the current view'); return; }
+    pos=best;
+    toast(`Trial ${n} isn't in the current view — jumped to trial `
+          +TRMAP.trial[view[pos][C.idx]]);
+  }
+  const r=view[pos];
+  ensureVisibleBlock(r);
+  const dpos=dispPosByIdx.get(r[C.idx]);
+  selectRow(r[C.idx],dpos,false,false);
+  scrollToPos(dpos);
+}
+function syncGotoBox(){
+  const byTrial=$('gotoMode').value==='trial';
+  $('goto').placeholder=byTrial?'Trial #':'Go to #';
+  $('goto').title=(byTrial?'Go to trial number':'Go to line number')+' (Ctrl+G)';
+}
+$('gotoMode').onchange=()=>{ syncGotoBox(); $('goto').focus(); $('goto').select(); };
 $('goto').addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;
   const n=parseInt(e.target.value,10);
-  if(!isNaN(n)) gotoLine(n);
+  if(isNaN(n)) return;
+  if($('gotoMode').value==='trial') gotoTrial(n); else gotoLine(n);
 });
 
 // ---- share a link to the current view ----
@@ -1600,6 +1715,7 @@ $('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classLi
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if($('palMask').classList.contains('open')) closePalette();
+  else if($('mapMask').classList.contains('open')) mapClose();
   else if($('trMask').classList.contains('open')) trClose();
   else if($('aboutMask').classList.contains('open')) $('aboutMask').classList.remove('open');
   else if($('mask').classList.contains('open')){ closeBrowser(); }
@@ -1637,7 +1753,10 @@ function resetSession(){
   cache={}; active=-1; ROWS=[]; META=null; view=[]; disp=[];
   SEL.clear(); anchorPos=-1; selIdx=-1; NOTES={};
   TRMAP=null; TRRES=null; SUG=null; TRMAPS={}; TRRESS={};
+  TRI=null; TRIDX={}; mapTrial=null; mapClose();
+  for(let i=COLS.length-1;i>=0;i--) if(COLS[i].k.slice(0,2)==='v_') COLS.splice(i,1);
   COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=true; });
+  syncTsModes();
   buildColMenu(); buildHead();
   $('details').classList.remove('open');
 }
@@ -1713,8 +1832,13 @@ function updateCounts(){
     if(s) s.textContent=(META.kind_counts[k]||0).toLocaleString();});
 }
 function updatePlaceholders(){
-  if(REL){ $('tmin').placeholder='0'; $('tmax').placeholder=(META.tmax-META.tmin);
+  if(!META) return;
+  if(TSMODE==='rel'){ $('tmin').placeholder='0'; $('tmax').placeholder=(META.tmax-META.tmin);
     $('trange').textContent=`data: 0 – ${META.tmax-META.tmin} (relative)`; }
+  else if(TSMODE==='trial'||TSMODE==='win'){
+    $('tmin').placeholder='from'; $('tmax').placeholder='to';
+    $('trange').textContent='ms from '+(TSMODE==='win'?'window onset':'trial start')
+      +' — lines outside a trial are left in place'; }
   else { $('tmin').placeholder=META.tmin; $('tmax').placeholder=META.tmax;
     $('trange').textContent=`data: ${META.tmin} – ${META.tmax}`; }
 }
@@ -1822,6 +1946,8 @@ function loadColLayout(){
 function resetColLayout(){
   try{ localStorage.removeItem('gama.cols'); }catch(e){}
   COLS.length=0; DEFAULT_COLS.forEach(c=>COLS.push(Object.assign({},c)));
+  if(TRI) COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
+  syncVarCols();
   buildHead(); buildColMenu(); layout(); render();
   toast('Columns reset');
 }
@@ -1943,7 +2069,10 @@ function apply(){
   const incM=makeMatcher(F.msgInc,F.msgRe), excM=makeMatcher(F.msgExc,F.msgRe);
   const srch=makeMatcher(F.search,F.searchRe);
   let tlo=F.tmin, thi=F.tmax;
-  if(REL){ if(tlo!==null) tlo+=TREF; if(thi!==null) thi+=TREF; }
+  // In the trial-based modes each row has its own reference, so the bounds
+  // cannot be shifted once for the whole pass.
+  const perRow=(TSMODE==='trial'||TSMODE==='win');
+  if(TSMODE==='rel'){ if(tlo!==null) tlo+=TREF; if(thi!==null) thi+=TREF; }
   const eye=F.eye;
   view=[];
   for(let i=0;i<ROWS.length;i++){
@@ -1951,7 +2080,7 @@ function apply(){
     if(!F.groups.has(g)) continue;
     if(g==='MSG' && !F.kinds.has(r[C.mkind]||'experiment')) continue;
     if(eye && r[C.eye] && r[C.eye]!==eye) continue;
-    const t=r[C.start];
+    const t=perRow?tdisp(r[C.start],r):r[C.start];
     if(tlo!==null && typeof t==='number' && t<tlo) continue;
     if(thi!==null && typeof t==='number' && t>thi) continue;
     const dv=r[C.dur];
@@ -1991,6 +2120,7 @@ function apply(){
     `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines` +
     (SEL.size ? `  ·  ${SEL.size.toLocaleString()} selected` : '');
   buildHead(); rebuildDisp(); layout(); render();
+  mapOnApply();
 }
 
 function updateFindbar(){
@@ -2160,7 +2290,7 @@ function selectRow(idx,pos,extend,toggle){
   } else {
     SEL.clear(); SEL.add(idx); anchorPos=pos;
   }
-  selIdx=idx; showDetails(idx);
+  selIdx=idx; showDetails(idx); mapOnSelect(idx);
   updateCountLabel(); render();
 }
 function updateCountLabel(){
@@ -2225,7 +2355,7 @@ function toast(msg){
 function showDetails(idx){
   const r=ROWS[idx]; const det=$('details');
   const fields=[['Index',r[C.idx]],['Type',r[C.cat]],['Group',r[C.grp]],
-    ['Msg kind',r[C.mkind]],['Start',tdisp(r[C.start])],['End',tdisp(r[C.end])],
+    ['Msg kind',r[C.mkind]],['Start',tdisp(r[C.start],r)],['End',tdisp(r[C.end],r)],
     ['Dur',r[C.dur]],['Eye',r[C.eye]],['X1',r[C.x1]],['Y1',r[C.y1]],
     ['X2',r[C.x2]],['Y2',r[C.y2]],['Amplitude',r[C.amp]],['Peak vel',r[C.vel]],
     ['Pupil',r[C.pupil]],['Res X',r[C.resx]],['Res Y',r[C.resy]],['Input',r[C.val]]];
@@ -2271,7 +2401,13 @@ $('search').addEventListener('keydown',e=>{
 });
 $('searchRe').onchange=e=>{F.searchRe=e.target.checked;apply();};
 $('eyeSel').onchange=e=>{F.eye=e.target.value;apply();};
-$('tsMode').onchange=e=>{ REL=e.target.value==='rel'; updatePlaceholders(); apply(); };
+$('tsMode').onchange=e=>{ setTsMode(e.target.value); };
+function setTsMode(m){
+  if((m==='trial'||m==='win') && !(TRMAP&&TRI)){
+    toast('Classify trials first (Trials ▾)'); $('tsMode').value=TSMODE; return; }
+  TSMODE=m; REL=(m==='rel'); $('tsMode').value=m;
+  updatePlaceholders(); apply();
+}
 const onNum=deb(()=>{
   F.tmin=$('tmin').value===''?null:+$('tmin').value;
   F.tmax=$('tmax').value===''?null:+$('tmax').value;
@@ -2301,7 +2437,7 @@ function currentConfig(){
   return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
     tmin:F.tmin, tmax:F.tmax, durFix:F.durFix, durSacc:F.durSacc,
     msgInc:F.msgInc, msgExc:F.msgExc, msgRe:F.msgRe,
-    search:F.search, searchRe:F.searchRe, searchMode:F.searchMode, rel:REL,
+    search:F.search, searchRe:F.searchRe, searchMode:F.searchMode, rel:REL, ts:TSMODE,
     colf:{...F.colf},
     cols:COLS.filter(c=>!c.hidden).map(c=>c.k)};
 }
@@ -2322,7 +2458,9 @@ function applyConfig(cfg){
   F.searchMode=cfg.searchMode||'filter'; $('searchMode').value=F.searchMode;
   F.colf=Object.assign({}, cfg.colf||{}); buildFilterRow();
   if(cfg.colf && Object.values(cfg.colf).some(v=>v)) $('cfrow').classList.remove('off');
-  REL=!!cfg.rel; $('tsMode').value=REL?'rel':'abs';
+  let ts=cfg.ts||(cfg.rel?'rel':'abs');
+  if((ts==='trial'||ts==='win') && !(TRMAP&&TRI)) ts='abs';   // links outlive analyses
+  TSMODE=ts; REL=(ts==='rel'); $('tsMode').value=ts;
   if(cfg.cols){ COLS.forEach(c=>c.hidden=!cfg.cols.includes(c.k));
     buildColMenu(); }
   if(META) updatePlaceholders();
@@ -2363,6 +2501,71 @@ let TRMAP=null;               // the active file's row->trial/AOI mapping
 let TRMAPS={};                // per file id, so switching tabs can't mix them up
 let TRRESS={};                // per file id: the full analysis result
 let TRRES=null;               // last full analysis result
+let TRI=null;                 // active file: trial -> variables and reference times
+let TRIDX={};                 // per file id, same reason as TRMAPS
+
+// Turn one analysis result into the lookups the table needs: the trial
+// variables by trial number, and the times a row can be shown relative to.
+// A variable counts as numeric only if every trial's value parses as a number,
+// so "index" filters with > and <= while "cond" stays a text match.
+function trBuildIndex(res){
+  const names=res.var_names||[], vars=new Map(), t0=new Map(),
+        span=new Map(), aois=new Map();
+  const numeric=names.map(()=>true), width=names.map(n=>n.length);
+  Object.entries(res.trial_vars||{}).forEach(([k,vals])=>{
+    vars.set(+k, vals);
+    vals.forEach((v,i)=>{
+      if(v==='' || isNaN(parseFloat(v)) || !/^\s*-?\d*\.?\d+\s*$/.test(v)) numeric[i]=false;
+      if((''+v).length>width[i]) width[i]=(''+v).length;
+    });
+  });
+  Object.entries(res.trial_times||{}).forEach(([k,t])=>t0.set(+k,t));
+  Object.entries(res.trial_span||{}).forEach(([k,v])=>span.set(+k,v));
+  Object.entries(res.trial_aois||{}).forEach(([k,v])=>aois.set(+k,
+    v.map(a=>({label:a[0], x:a[1], y:a[2], w:a[3], h:a[4], r:a[5]}))));
+  return {names, vars, t0, span, aois,
+          shape:res.aoi_shape||{type:'circle', radius:100}, numeric, width};
+}
+
+// The variable columns follow the active file: a scheme with different
+// variables (or no trials at all) leaves none behind.
+function syncVarCols(){
+  const names=(TRI&&TRI.names)||[];
+  for(let i=COLS.length-1;i>=0;i--){
+    const c=COLS[i];
+    if(c.k.slice(0,2)==='v_' && names.indexOf(c.k.slice(2))<0) COLS.splice(i,1);
+  }
+  let saved={};
+  try{ (JSON.parse(localStorage.getItem('gama.cols')||'[]')||[])
+        .forEach(c=>saved[c.k]=c); }catch(e){}
+  names.forEach((nm,i)=>{
+    const key='v_'+nm;
+    if(COLS.some(c=>c.k===key)) return;
+    const sv=saved[key]||{};
+    const col={k:key, label:nm, num:!!(TRI&&TRI.numeric[i]),
+      w:sv.w||Math.min(200, Math.max(64, 9*(TRI?TRI.width[i]:nm.length)+22)),
+      hidden:!!sv.hidden,
+      get:r=>{ if(!TRMAP||!TRI) return '';
+        const v=TRI.vars.get(TRMAP.trial[r[C.idx]]);
+        return v ? (v[i]===undefined?'':v[i]) : ''; }};
+    const at=COLS.findIndex(c=>c.k==='msg');
+    COLS.splice(at<0?COLS.length:at, 0, col);
+  });
+  buildColMenu(); buildHead();
+}
+
+// The two trial-based timestamp modes only make sense once trials exist.
+function syncTsModes(){
+  const on=!!(TRMAP&&TRI&&TRI.t0.size);
+  const sel=$('tsMode');
+  ['trial','win'].forEach(v=>{
+    const o=sel.querySelector(`option[value="${v}"]`); if(o) o.disabled=!on; });
+  $('gotoMode').querySelector('option[value="trial"]').disabled=!on;
+  if(!on && (TSMODE==='trial'||TSMODE==='win')){
+    TSMODE='abs'; REL=false; sel.value='abs'; updatePlaceholders();
+  }
+  if(!on && $('gotoMode').value==='trial'){ $('gotoMode').value='line'; syncGotoBox(); }
+}
 let TRSCHEMES={};
 
 function trOpen(){
@@ -2657,12 +2860,14 @@ async function trDoPreview(){
 
 function trShowColumns(){
   COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
+  syncVarCols(); syncTsModes();
   saveColLayout(); buildColMenu(); buildHead();
 }
 function trStore(fileId, res){
   TRMAPS[fileId]={trial:res.row_trial, aoi:res.row_aoi, from:res.row_aoi_from};
   TRRESS[fileId]=res;
-  if(fileId===active){ TRMAP=TRMAPS[fileId]; TRRES=res; }
+  TRIDX[fileId]=trBuildIndex(res);
+  if(fileId===active){ TRMAP=TRMAPS[fileId]; TRRES=res; TRI=TRIDX[fileId]; }
 }
 
 async function trDoApply(){
@@ -2831,11 +3036,22 @@ function paletteActions(){
     add('Load preset: '+n,'Preset',()=>applyConfig(PRESETS[n]),{always:true}));
   // navigation / view
   if(haveFile){
-    add('Go to line…','View',()=>{$('goto').focus();$('goto').select();},{key:'Ctrl+G'});
+    add('Scanpath of the selected trial','View',()=>{
+      MAPMODE='scan'; $('mapMode').value='scan'; mapOpen(); });
+    add('Aggregate map of the filtered set','View',()=>{
+      MAPMODE='agg'; $('mapMode').value='agg'; mapOpen(); });
+    add('Go to line…','View',()=>{$('gotoMode').value='line';syncGotoBox();
+      $('goto').focus();$('goto').select();},{key:'Ctrl+G'});
+    if(TRMAP&&TRI) add('Go to trial…','View',()=>{$('gotoMode').value='trial';syncGotoBox();
+      $('goto').focus();$('goto').select();});
     add('Flag / unflag selected row','Row',()=>{ if(selIdx>=0) toggleFlag(selIdx); },{key:'F'});
   }
-  add('Timestamps: absolute','View',()=>{$('tsMode').value='abs';$('tsMode').dispatchEvent(new Event('change'));},{always:true});
-  add('Timestamps: relative to file start','View',()=>{$('tsMode').value='rel';$('tsMode').dispatchEvent(new Event('change'));},{always:true});
+  add('Timestamps: absolute','View',()=>setTsMode('abs'),{always:true});
+  add('Timestamps: relative to file start','View',()=>setTsMode('rel'),{always:true});
+  if(TRMAP&&TRI){
+    add('Timestamps: relative to trial start','View',()=>setTsMode('trial'));
+    add('Timestamps: relative to window onset','View',()=>setTsMode('win'));
+  }
   add('Theme: dark','View',()=>setTheme('dark'),{always:true});
   add('Theme: light','View',()=>setTheme('light'),{always:true});
   add('Text size: small','View',()=>setFont('s'),{always:true});
@@ -2943,10 +3159,318 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#trExpMenu')&&!e.target.closest('#trExport')) $('trExpMenu').classList.remove('open');
 });
 
+
+// ---- scanpath & aggregate map --------------------------------------------
+// Two drawings over the same screen rectangle: one trial's eye movements in
+// the order they happened, or every fixation in the current view binned into a
+// grid. Both are plain SVG, so "Save SVG" hands you something a figure editor
+// will open. Neither asks the server for anything — the fixations are already
+// in the table, and the trial analysis brought the stimulus positions with it.
+let MAPMODE='scan', mapTrial=null;
+
+function mapIsOpen(){ return $('mapMask').classList.contains('open'); }
+function mapHaveTrials(){ return !!(TRMAP&&TRI&&TRI.span.size); }
+function trialAt(idx){ return (TRMAP && TRMAP.trial[idx]>0) ? TRMAP.trial[idx] : null; }
+function mapScreen(){
+  // the tracker's own GAZE_COORDS if the analysis found it, else assume 1080p
+  const s=(TRRES&&TRRES.screen)||null;
+  return {w:(s&&s.w)||1920, h:(s&&s.h)||1080};
+}
+function mapOpen(){
+  if(!META){ toast('Open a recording first'); return; }
+  if(MAPMODE==='scan' && selIdx>=0){ const t=trialAt(selIdx); if(t) mapTrial=t; }
+  $('mapMask').classList.add('open');
+  mapRender();
+}
+function mapClose(){ $('mapMask').classList.remove('open'); }
+
+// Every fixation and saccade of one trial, read straight out of the rows. The
+// trial's line span keeps this off the rest of the recording.
+function trialEvents(t){
+  const sp=TRI&&TRI.span.get(t);
+  if(!sp) return null;
+  const fx=[], sc=[];
+  const hi=Math.min(sp[1], ROWS.length-1);
+  for(let i=sp[0];i<=hi;i++){
+    const r=ROWS[i];
+    const g=r[C.grp];
+    if(g!=='FIX' && g!=='SACC') continue;
+    if(TRMAP.trial[r[C.idx]]!==t) continue;
+    if(r[C.cat]==='EFIX'){
+      const x=+r[C.x1], y=+r[C.y1];
+      if(isFinite(x)&&isFinite(y)) fx.push({i:r[C.idx], t:r[C.start],
+        dur:+r[C.dur]||0, x, y, aoi:TRMAP.aoi[r[C.idx]]||''});
+    } else if(r[C.cat]==='ESACC'){
+      const x1=+r[C.x1], y1=+r[C.y1], x2=+r[C.x2], y2=+r[C.y2];
+      if([x1,y1,x2,y2].every(isFinite)) sc.push({i:r[C.idx], t:r[C.start],
+        x1, y1, x2, y2, amp:r[C.amp], aoi:TRMAP.aoi[r[C.idx]]||'',
+        from:TRMAP.from[r[C.idx]]||''});
+    }
+  }
+  return {fx, sc};
+}
+
+// One AOI as SVG, honouring whatever hit-test shape the analysis used.
+function mapAoiShape(a, sx, sy, shape){
+  const cx=sx(a.x), cy=sy(a.y);
+  const typ=(shape&&shape.type)||'circle';
+  if(typ==='rect' || (typ==='fields' && a.w && a.h)){
+    const w=sx(a.w||(+shape.w||100)), h=sy(a.h||(+shape.h||100));
+    return `<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" class="aoi"/>`;
+  }
+  if(typ==='nearest') return '';           // no boundary to draw
+  const r=sx(a.r||(+shape.radius||100));
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" class="aoi"/>`;
+}
+
+function mapSvg(w, h, inner, W){
+  W=W||620;
+  const H=Math.round(W*h/w);
+  return `<svg viewBox="0 0 ${W} ${H}" class="mapsvg" `+
+    `xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">`+
+    `<rect x="0" y="0" width="${W}" height="${H}" class="screen"/>`+
+    `<line x1="${W/2}" y1="0" x2="${W/2}" y2="${H}" class="cross"/>`+
+    `<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" class="cross"/>`+
+    inner+`</svg>`;
+}
+
+function drawScanpath(){
+  const body=$('mapBody');
+  if(!mapHaveTrials()){
+    body.innerHTML='<p class="mapnote">No trials yet — classify them under '+
+      '<b>Trials &#9662;</b> and this will draw the selected one.</p>';
+    $('mapTitle').textContent='Scanpath'; return;
+  }
+  const nums=[...TRI.span.keys()].sort((a,b)=>a-b);
+  if(mapTrial===null || !TRI.span.has(mapTrial)) mapTrial=nums[0];
+  const t=mapTrial, ev=trialEvents(t);
+  const sc=mapScreen(), W=620, H=Math.round(W*sc.h/sc.w);
+  const sx=v=>(v/sc.w)*W, sy=v=>(v/sc.h)*H;
+  const times=TRI.t0.get(t)||[];
+  const base=(times[1]!=null?times[1]:times[0]);
+  const wlo=times[1], whi=times[2];
+  const inWin=e=>!(wlo!=null && e.t<wlo) && !(whi!=null && e.t>whi);
+
+  let g='';
+  (TRI.aois.get(t)||[]).forEach(a=>{
+    g+=mapAoiShape(a, sx, sy, TRI.shape);
+    g+=`<text x="${sx(a.x)}" y="${sy(a.y)-4}" class="aoit">${escapeHtml(a.label)}</text>`;
+  });
+  ev.sc.forEach(s=>{
+    g+=`<line x1="${sx(s.x1)}" y1="${sy(s.y1)}" x2="${sx(s.x2)}" y2="${sy(s.y2)}" `+
+       `class="sacc${inWin(s)?'':' out'}"><title>saccade at `+
+       `${base!=null?(s.t-base)+' ms':s.t} \u00b7 ${s.amp||'?'}\u00b0`+
+       `${s.from||s.aoi?` \u00b7 ${s.from||'\u2013'} \u2192 ${s.aoi||'\u2013'}`:''}`+
+       `</title></line>`;
+  });
+  const nlab=ev.fx.length<=45;
+  ev.fx.forEach((f,k)=>{
+    const r=Math.max(3.5, Math.min(15, Math.sqrt((f.dur||60)/4)));
+    const cls='fix '+(f.aoi?'hit':'miss')+(inWin(f)?'':' out');
+    g+=`<circle cx="${sx(f.x)}" cy="${sy(f.y)}" r="${r}" class="${cls}" `+
+       `data-line="${f.i}"><title>fixation ${k+1} \u00b7 `+
+       `${base!=null?(f.t-base)+' ms':f.t} \u00b7 ${f.dur} ms \u00b7 `+
+       `${f.aoi||'no AOI'} \u00b7 line ${f.i}</title></circle>`;
+    if(nlab && r>=5) g+=`<text x="${sx(f.x)}" y="${sy(f.y)+3}" class="spnum">${k+1}</text>`;
+  });
+
+  const hit=ev.fx.filter(f=>f.aoi).length;
+  const f0=ev.fx.find(f=>f.aoi && inWin(f));
+  const s0=ev.sc.find(s=>s.aoi && inWin(s));
+  const vars=(TRI.vars.get(t)||[]);
+  const chips=TRI.names.map((nm,i)=>
+    `<span>${escapeHtml(nm)}: <b>${escapeHtml(vars[i]===undefined?'':vars[i])}</b></span>`).join('');
+  const rows=[
+    ['Lines', TRI.span.get(t).join(' \u2013 ')],
+    ['Trial time', times[0]+' \u2013 '+times[3]+
+      (times[3]!=null&&times[0]!=null?` (${times[3]-times[0]} ms)`:'')],
+    ['Window', wlo!=null?`${wlo} \u2013 ${whi==null?'?':whi}`:'\u2014'],
+    ['Fixations', `${ev.fx.length} (${hit} in an AOI)`],
+    ['Saccades', ev.sc.length],
+    ['First AOI fixation', f0?`${f0.aoi} at ${base!=null?f0.t-base:f0.t} ms`:'none'],
+    ['First AOI saccade', s0?`${s0.from||'\u2013'} \u2192 ${s0.aoi} at ${base!=null?s0.t-base:s0.t} ms`:'none'],
+  ];
+  $('mapTitle').textContent=`Scanpath \u00b7 trial ${t} of ${nums[nums.length-1]}`;
+  body.innerHTML=`<div class="maprow"><div style="flex:none;width:min(620px,100%)">`+
+    mapSvg(sc.w, sc.h, g, W)+
+    `<p class="mapnote">Circle area is fixation duration, numbers are the order. `+
+    `Green landed in an AOI, red in none, faded fell outside the analysis window. `+
+    `Click one to jump to its line.</p></div>`+
+    `<div class="mapside">${chips?`<div class="mapchips">${chips}</div>`:''}`+
+    `<table>${rows.map(([k,v])=>
+      `<tr><td class="k">${k}</td><td>${escapeHtml(''+v)}</td></tr>`).join('')}</table>`+
+    `<p class="mapnote">${sc.w}\u00d7${sc.h} screen. \u25c0 \u25b6 step through trials; `+
+    `selecting a row in the table jumps here too.</p></div></div>`;
+  body.querySelectorAll('circle.fix').forEach(c=>{
+    c.onclick=()=>{ const i=+c.dataset.line;
+      $('gotoMode').value='line'; syncGotoBox(); gotoLine(i); };
+  });
+}
+
+// Every fixation in the current view, binned over the screen. Respects the
+// filters, so "block 6, distractor present, first 300 ms" is a map of exactly
+// that set.
+function drawAggregate(){
+  const body=$('mapBody');
+  const sc=mapScreen(), W=620, H=Math.round(W*sc.h/sc.w);
+  const NX=48, NY=Math.max(8, Math.round(NX*sc.h/sc.w));
+  const cw=sc.w/NX, ch=sc.h/NY;
+  const cnt=new Int32Array(NX*NY), dwell=new Float64Array(NX*NY);
+  const byAoi=new Map();
+  const trialsSeen=new Set();
+  let nfix=0, tot=0, out=0;
+  for(const r of view){
+    if(r[C.grp]!=='FIX' || r[C.cat]!=='EFIX') continue;
+    const x=+r[C.x1], y=+r[C.y1];
+    if(!isFinite(x)||!isFinite(y)) continue;
+    const d=+r[C.dur]||0;
+    nfix++; tot+=d;
+    if(x<0||y<0||x>=sc.w||y>=sc.h){ out++; continue; }
+    const k=Math.min(NY-1,Math.floor(y/ch))*NX + Math.min(NX-1,Math.floor(x/cw));
+    cnt[k]++; dwell[k]+=d;
+    if(TRMAP){
+      const tn=TRMAP.trial[r[C.idx]];
+      if(tn>0) trialsSeen.add(tn);
+      const lab=TRMAP.aoi[r[C.idx]]||'';
+      const e=byAoi.get(lab)||{n:0,d:0};
+      e.n++; e.d+=d; byAoi.set(lab,e);
+    }
+  }
+  const metric=$('mapMetric').value;
+  const val=metric==='dwell'?dwell:cnt;
+  let max=0;
+  for(let i=0;i<val.length;i++) if(val[i]>max) max=val[i];
+
+  let g='';
+  if(TRI && trialsSeen.size){
+    const seen=new Map();
+    for(const tn of trialsSeen){
+      for(const a of (TRI.aois.get(tn)||[])){
+        const key=a.label+'@'+Math.round(a.x)+','+Math.round(a.y);
+        if(!seen.has(key)) seen.set(key,a);
+      }
+      if(seen.size>=80) break;             // a moving display would flood this
+    }
+    const sx=v=>(v/sc.w)*W, sy=v=>(v/sc.h)*H;
+    seen.forEach(a=>{ g+=mapAoiShape(a, sx, sy, TRI.shape); });
+  }
+  const cellW=W/NX, cellH=H/NY;
+  for(let iy=0;iy<NY;iy++) for(let ix=0;ix<NX;ix++){
+    const v=val[iy*NX+ix];
+    if(!v) continue;
+    const o=(0.10+0.90*Math.log1p(v)/Math.log1p(max)).toFixed(3);
+    const c=cnt[iy*NX+ix];
+    g+=`<rect class="heat" x="${(ix*cellW).toFixed(2)}" y="${(iy*cellH).toFixed(2)}" `+
+       `width="${(cellW+0.6).toFixed(2)}" height="${(cellH+0.6).toFixed(2)}" `+
+       `fill="var(--accent2)" opacity="${o}"><title>${c} fixation${c===1?'':'s'}`+
+       `, ${Math.round(dwell[iy*NX+ix])} ms</title></rect>`;
+  }
+
+  let side='';
+  if(byAoi.size){
+    const rows=[...byAoi.entries()].sort((a,b)=>b[1].n-a[1].n);
+    side+='<h4>By AOI</h4><table>'+
+      '<tr><td class="k">label</td><td class="k">fix</td>'+
+      '<td class="k">share</td><td class="k">mean dur</td></tr>'+
+      rows.map(([lab,e])=>
+      `<tr><td class="k">${escapeHtml(lab||'no AOI')}</td>`+
+      `<td>${e.n.toLocaleString()}</td>`+
+      `<td>${nfix?(100*e.n/nfix).toFixed(1):'0'}%</td>`+
+      `<td>${Math.round(e.d/e.n)} ms</td></tr>`).join('')+'</table>';
+  }
+  side+='<h4>Totals</h4><table>'+
+    `<tr><td class="k">Fixations</td><td>${nfix.toLocaleString()}</td></tr>`+
+    `<tr><td class="k">Total dwell</td><td>${Math.round(tot).toLocaleString()} ms</td></tr>`+
+    `<tr><td class="k">Mean duration</td><td>${nfix?Math.round(tot/nfix):0} ms</td></tr>`+
+    (trialsSeen.size?`<tr><td class="k">Trials covered</td><td>${trialsSeen.size.toLocaleString()}</td></tr>`:'')+
+    (out?`<tr><td class="k">Off screen</td><td>${out.toLocaleString()}</td></tr>`:'')+
+    `<tr><td class="k">Busiest cell</td><td>${metric==='dwell'?Math.round(max)+' ms':max+' fix'}</td></tr>`+
+    '</table>';
+
+  $('mapTitle').textContent='Aggregate map';
+  body.innerHTML=`<div class="maprow"><div style="flex:none;width:min(620px,100%)">`+
+    (nfix?mapSvg(sc.w, sc.h, g, W)
+        :'<p class="mapnote">No fixations in the current view.</p>')+
+    `<div class="mapscale"><span>less</span><span class="bar"></span><span>more</span>`+
+    `<span>\u00b7 ${metric==='dwell'?'dwell time':'fixation count'} per cell, log-scaled`+
+    `\u00b7 ${NX}\u00d7${NY} cells</span></div>`+
+    `<p class="mapnote">Every fixation the filters left in the table, `+
+    `${TRI&&trialsSeen.size?'with the AOI outlines those trials used.':'over the recorded screen.'}`+
+    `</p></div><div class="mapside">${side}</div></div>`;
+}
+
+function mapRender(){
+  if(!mapIsOpen()) return;
+  const scan=MAPMODE==='scan';
+  $('mapPrev').style.display=$('mapNext').style.display=scan?'':'none';
+  $('mapMetric').style.display=scan?'none':'';
+  if(!META){ $('mapBody').innerHTML='<p class="mapnote">Open a recording first.</p>'; return; }
+  scan?drawScanpath():drawAggregate();
+}
+function mapStep(d){
+  if(!mapHaveTrials()) return;
+  const nums=[...TRI.span.keys()].sort((a,b)=>a-b);
+  let at=nums.indexOf(mapTrial);
+  if(at<0) at=0; else at=Math.min(nums.length-1, Math.max(0, at+d));
+  mapTrial=nums[at]; mapRender();
+}
+// The panel is a view of the selection and of the filters, so both feed it.
+function mapOnSelect(idx){
+  if(!mapIsOpen() || MAPMODE!=='scan') return;
+  const t=trialAt(idx);
+  if(t && t!==mapTrial){ mapTrial=t; mapRender(); }
+}
+// Redrawing on every apply() covers the aggregate (which is a picture of the
+// filters) and a file switch (which arrives the same way).
+function mapOnApply(){ if(mapIsOpen()) mapRender(); }
+
+// A saved drawing has to stand on its own, so the handful of themed colours
+// the classes rely on get resolved and written into the file.
+function mapSaveSvg(){
+  const svg=$('mapBody').querySelector('svg');
+  if(!svg){ toast('Nothing to save'); return; }
+  const cs=getComputedStyle(document.body);
+  const V=k=>(cs.getPropertyValue(k)||'').trim()||'#000';
+  const css='.screen{fill:'+V('--bg')+';stroke:'+V('--line')+'}'+
+    '.aoi{fill:none;stroke:'+V('--accent')+';stroke-width:1}'+
+    '.aoit{fill:'+V('--muted')+';font-size:9px;text-anchor:middle;'+
+      'font-family:system-ui,sans-serif}'+
+    '.sacc{stroke:'+V('--muted')+';stroke-width:1.3;opacity:.8}'+
+    '.sacc.out{opacity:.3;stroke-dasharray:3 3}'+
+    '.fix{stroke:'+V('--panel')+';stroke-width:1}'+
+    '.fix.hit{fill:'+V('--accent2')+'}.fix.miss{fill:#e05252}.fix.out{opacity:.35}'+
+    '.spnum{fill:'+V('--bg')+';font-size:8.5px;font-weight:700;text-anchor:middle;'+
+      'font-family:system-ui,sans-serif}'+
+    '.cross{stroke:'+V('--line')+';stroke-width:1;stroke-dasharray:2 4}';
+  let out=svg.outerHTML
+    .replace('>', '><style>'+css+'</style>')
+    .replace(/var\(--accent2\)/g, V('--accent2'));
+  const f=fileById(active);
+  const name=(f?(f.base||f.name.replace(/\.[^.]+$/,'')):'gama')+
+    (MAPMODE==='scan'?('_trial'+mapTrial+'_scanpath'):'_aggregate_map')+'.svg';
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([out],{type:'image/svg+xml'}));
+  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+  toast('Saved '+name);
+}
+
+$('mapBtn').onclick=mapOpen;
+$('mapCloseBtn').onclick=mapClose;
+$('mapMask').onclick=e=>{ if(e.target===$('mapMask')) mapClose(); };
+$('mapMode').onchange=e=>{ MAPMODE=e.target.value; mapRender(); };
+$('mapMetric').onchange=mapRender;
+$('mapPrev').onclick=()=>mapStep(-1);
+$('mapNext').onclick=()=>mapStep(1);
+$('mapSave').onclick=mapSaveSvg;
+
 // ---- export ----
 function currentOpts(){
   let lo=F.tmin, hi=F.tmax;
   if(REL){ if(lo!==null) lo+=TREF; if(hi!==null) hi+=TREF; }
+  // A trial-relative bound has no single absolute equivalent, so it cannot be
+  // handed to the server. Exporting the current view still respects it: that
+  // goes out as an explicit list of lines.
+  if(TSMODE==='trial'||TSMODE==='win') lo=hi=null;
   return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
     tmin:lo, tmax:hi, min_fix:F.durFix, min_sacc:F.durSacc,
     contains:F.msgInc, exclude:F.msgExc, contains_regex:F.msgRe,
@@ -2972,6 +3496,8 @@ async function exportOne(fmt){
 }
 async function exportAll(fmt){
   const sidecar=$('sidecarChk').checked && fmt!=='asc';
+  if((TSMODE==='trial'||TSMODE==='win') && (F.tmin!==null||F.tmax!==null))
+    toast('Exporting all files ignores the trial-relative time range');
   download(await post('/api/export_all',
     {opts:currentOpts(),format:fmt,relative:REL,sidecar}),
     'edf_export_'+fmt+'.zip');
