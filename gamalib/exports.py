@@ -27,7 +27,7 @@ def build_provenance(entry, fmt, opts_json, relative, n_rows):
         "source_file": entry.name,
         "source_path": entry.path,
         "format": fmt,
-        "timestamps": "relative_to_file_start" if relative else "absolute",
+        "timestamps": _mode_label(relative),
         "rows_written": n_rows,
         "source_total_lines": len(entry.records) if entry.records else None,
         "filters": filt,
@@ -83,6 +83,42 @@ def _trial_var_values(trials, tn, n):
 
 
 
+def _offset_fn(mode, tref, trials):
+    """Per-row timestamp offset for the chosen display mode.
+
+    Returns 0 to leave a timestamp alone, or None when the row has no
+    reference at all - a line outside every trial, which the table shows
+    blank and the export follows.
+    """
+    if mode is True or mode == "rel":
+        return lambda i: tref
+    if mode in ("trial", "win") and trials:
+        rt = trials.get("row_trial") or []
+        times = trials.get("trial_times") or {}
+        k = 1 if mode == "win" else 0
+
+        def off(i):
+            n = rt[i] if i < len(rt) else -1
+            if not n or n <= 0:
+                return None
+            t = times.get(n) or times.get(str(n))   # survives JSON round trips
+            if not t:
+                return None
+            v = t[k]
+            if v is None and k == 1:                # no window: fall back to the trial
+                v = t[0]
+            return v if isinstance(v, int) else None
+
+        return off
+    return lambda i: 0
+
+
+def _mode_label(mode):
+    return {"rel": "relative_to_file_start", True: "relative_to_file_start",
+            "trial": "relative_to_trial_start",
+            "win": "relative_to_window_onset"}.get(mode, "absolute")
+
+
 def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
                  notes=None, trials=None):
     import csv
@@ -98,14 +134,18 @@ def export_table(parsed, rows, indices, delimiter, relative=False, tref=0,
     if has_notes:
         header += ["flagged", "note"]
     w.writerow(header)
+    offset = _offset_fn(relative, tref, trials)
     for i in indices:
         if not (0 <= i < len(parsed)):
             continue
         d, r = parsed[i], rows[i]
         st, en = d["start"], d["end"]
-        if relative:
+        off = offset(i)
+        if off is None:
+            st = en = ""
+        elif off:
             if isinstance(st, int):
-                st -= tref
+                st -= off
             if isinstance(en, int):
                 en -= tref
         msg = (d["msg"] or "").replace("\r", " ").replace("\n", " ")
@@ -176,16 +216,20 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
         cols += ["flagged", "note"]
     head = "".join(f"<th>{_esc(c)}</th>" for c in cols)
     out = []
+    offset = _offset_fn(relative, tref, trials)
     for i in indices:
         if not (0 <= i < len(parsed)):
             continue
         d, r = parsed[i], rows[i]
         st, en = d["start"], d["end"]
-        if relative:
+        off = offset(i)
+        if off is None:
+            st = en = ""
+        elif off:
             if isinstance(st, int):
-                st -= tref
+                st -= off
             if isinstance(en, int):
-                en -= tref
+                en -= off
         msg = (d["msg"] or "").replace("\r", " ").replace("\n", " ")
         cells = [i, r[I_CAT], r[I_GRP], r[I_MK], st, en, d["dur"], d["eye"],
                  d["x1"], d["y1"], d["x2"], d["y2"], d["amp"], d["vel"],
@@ -208,7 +252,7 @@ def export_html(parsed, rows, indices, relative=False, tref=0, title="EDF view",
         cls = ' class="flagged"' if (nv and nv.get("flag")) else ""
         out.append(f"<tr{cls}>{tds}</tr>")
     sub = (f"{len(out):,} rows &middot; times "
-           f"{'relative to file start' if relative else 'absolute'} &middot; "
+           f"{_mode_label(relative).replace('_', ' ')} &middot; "
            f"exported by gama {__version__}")
     doc = _HTML_DOC.format(title=_esc(title), sub=sub, head=head,
                            rows="\n".join(out))

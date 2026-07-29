@@ -223,7 +223,8 @@ def make_handler(reg, converted_from_line, presets_dir, watcher,
                                 "row_aoi": res["row_aoi"],
                                 "row_aoi_from": res["row_aoi_from"],
                                 "var_names": res.get("var_names") or [],
-                                "trial_vars": res.get("trial_vars") or {}}
+                                "trial_vars": res.get("trial_vars") or {},
+                                "trial_times": res.get("trial_times") or {}}
             if req.get("preview"):
                 res.pop("row_trial", None)
                 res.pop("row_aoi", None)

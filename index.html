@@ -92,6 +92,7 @@
   .mapsvg .screen{fill:var(--bg);stroke:var(--line)}
   .mapsvg .aoi{fill:rgba(91,157,255,.10);stroke:var(--accent);stroke-width:1}
   .mapsvg .aoit{fill:var(--muted);font-size:9px;text-anchor:middle}
+  .mapsvg .aoic{fill:var(--accent)}
   .mapsvg .sacc{stroke:var(--muted);stroke-width:1.3;opacity:.8;fill:none}
   .mapsvg .sacc.out{opacity:.3;stroke-dasharray:3 3}
   .mapsvg .fix{stroke:var(--panel);stroke-width:1;cursor:pointer}
@@ -3172,8 +3173,9 @@ function mapIsOpen(){ return $('mapMask').classList.contains('open'); }
 function mapHaveTrials(){ return !!(TRMAP&&TRI&&TRI.span.size); }
 function trialAt(idx){ return (TRMAP && TRMAP.trial[idx]>0) ? TRMAP.trial[idx] : null; }
 function mapScreen(){
-  // the tracker's own GAZE_COORDS if the analysis found it, else assume 1080p
-  const s=(TRRES&&TRRES.screen)||null;
+  // The tracker states its display size in the header, so this is right even
+  // with no trials classified; 1080p is only the last resort.
+  const s=(TRRES&&TRRES.screen) || (META&&META.screen) || null;
   return {w:(s&&s.w)||1920, h:(s&&s.h)||1080};
 }
 function mapOpen(){
@@ -3214,13 +3216,17 @@ function trialEvents(t){
 function mapAoiShape(a, sx, sy, shape){
   const cx=sx(a.x), cy=sy(a.y);
   const typ=(shape&&shape.type)||'circle';
+  // Whatever the hit test was, the stimulus itself gets a dot: under nearest
+  // matching there is no boundary to draw, and without the dot the fixations
+  // would float on an empty screen.
+  const dot=`<circle cx="${cx}" cy="${cy}" r="2.5" class="aoic"/>`;
   if(typ==='rect' || (typ==='fields' && a.w && a.h)){
     const w=sx(a.w||(+shape.w||100)), h=sy(a.h||(+shape.h||100));
-    return `<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" class="aoi"/>`;
+    return `<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" class="aoi"/>`+dot;
   }
-  if(typ==='nearest') return '';           // no boundary to draw
+  if(typ==='nearest') return dot;
   const r=sx(a.r||(+shape.radius||100));
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" class="aoi"/>`;
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" class="aoi"/>`+dot;
 }
 
 function mapSvg(w, h, inner, W){
@@ -3352,7 +3358,9 @@ function drawAggregate(){
       if(seen.size>=80) break;             // a moving display would flood this
     }
     const sx=v=>(v/sc.w)*W, sy=v=>(v/sc.h)*H;
-    seen.forEach(a=>{ g+=mapAoiShape(a, sx, sy, TRI.shape); });
+    seen.forEach(a=>{ g+=mapAoiShape(a, sx, sy, TRI.shape);
+      if(seen.size<=24) g+=`<text x="${sx(a.x)}" y="${sy(a.y)-5}" class="aoit">`+
+        `${escapeHtml(a.label)}</text>`; });
   }
   const cellW=W/NX, cellH=H/NY;
   for(let iy=0;iy<NY;iy++) for(let ix=0;ix<NX;ix++){
@@ -3433,6 +3441,7 @@ function mapSaveSvg(){
   const V=k=>(cs.getPropertyValue(k)||'').trim()||'#000';
   const css='.screen{fill:'+V('--bg')+';stroke:'+V('--line')+'}'+
     '.aoi{fill:none;stroke:'+V('--accent')+';stroke-width:1}'+
+    '.aoic{fill:'+V('--accent')+'}'+
     '.aoit{fill:'+V('--muted')+';font-size:9px;text-anchor:middle;'+
       'font-family:system-ui,sans-serif}'+
     '.sacc{stroke:'+V('--muted')+';stroke-width:1.3;opacity:.8}'+
@@ -3464,6 +3473,9 @@ $('mapNext').onclick=()=>mapStep(1);
 $('mapSave').onclick=mapSaveSvg;
 
 // ---- export ----
+// The export takes the mode by name, so a trial-relative view exports
+// trial-relative times instead of quietly reverting to absolute.
+function tsExportMode(){ return TSMODE==='abs' ? false : TSMODE; }
 function currentOpts(){
   let lo=F.tmin, hi=F.tmax;
   if(REL){ if(lo!==null) lo+=TREF; if(hi!==null) hi+=TREF; }
@@ -3491,7 +3503,7 @@ async function exportOne(fmt){
   const indices=view.map(r=>r[C.idx]);
   const sidecar=$('sidecarChk').checked && fmt!=='asc';
   download(await post('/api/export',
-    {file:active,indices,format:fmt,relative:REL,sidecar,opts:currentOpts()}),
+    {file:active,indices,format:fmt,relative:tsExportMode(),sidecar,opts:currentOpts()}),
     sidecar?(fname()+'_filtered.zip'):('export.'+fmt));
 }
 async function exportAll(fmt){
@@ -3499,7 +3511,7 @@ async function exportAll(fmt){
   if((TSMODE==='trial'||TSMODE==='win') && (F.tmin!==null||F.tmax!==null))
     toast('Exporting all files ignores the trial-relative time range');
   download(await post('/api/export_all',
-    {opts:currentOpts(),format:fmt,relative:REL,sidecar}),
+    {opts:currentOpts(),format:fmt,relative:tsExportMode(),sidecar}),
     'edf_export_'+fmt+'.zip');
 }
 function fname(){ const f=fileById(active); return f?f.base||f.name.replace(/\.[^.]+$/,''):'export'; }

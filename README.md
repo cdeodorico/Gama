@@ -115,7 +115,17 @@ Three ways to read fields, because nobody formats these the same:
 
 **Preview** shows the first handful of parsed trials with their variables and AOI positions, use this to assess your config.
 
-**Apply to table** adds `Trial` and `AOI` columns to the main view - filterable and sortable like everything else, and they ride along in the CSV/TSV/HTML row exports (saccades also carry the AOI they left from).
+**Apply to table** adds `Trial` and `AOI` columns to the main view - filterable and sortable like everything else, and they ride along in the CSV/TSV/HTML row exports (saccades also carry the AOI they left from). Your per-trial variables come with them: one column each, so `index`, `block` and `type` sit on every line of that trial and filter like anything else (numeric ones get `>` and `<=`, text ones match as text). Every line between the two markers is tagged, messages included, not just the eye events.
+
+Two more things wake up once trials exist. **Timestamps** in the sidebar gains *relative to trial start* and *relative to window onset*, which is usually what you want when comparing latencies across trials - `Start` and `End` then read as ms from that trial's own zero, the time range boxes take the same units, and an export made in that mode carries the same numbers (the sidecar records which). Lines outside every trial have nothing to subtract from, so they come out blank. The **Line / Trial** dropdown beside the go-to box switches it from line numbers to trial numbers, which is how you get to trial 743 of 1000. Exporting the current view honours a trial-relative range because it sends the exact line list; exporting *all* files can't, so it ignores it and says so.
+
+**Map** in the toolbar draws what the numbers describe, which is usually how I notice a scheme is wrong.
+
+*Trial scanpath* takes the trial the selected line belongs to and draws it: AOI outlines at the size the analysis actually used, a dot on every stimulus position, fixations as circles scaled by duration and numbered in order, saccades as the lines between them. Green landed in an AOI, red in none, faded fell outside the analysis window. Click a fixation to jump to its line, or step through trials with the arrows - selecting a row in the table brings the panel with it. If the first fixation is a fat red circle in the middle of the screen, that is your fixation control and it is behaving.
+
+*Aggregate over the filtered set* bins every fixation still in the table over the screen, shaded by count or by dwell time, with the AOI outlines of the trials involved. It is a picture of the filters, so it answers things like "where did they look in the first 300 ms of a distractor-present trial in block 6" - set the filters up in the table, then open the panel. It works without a trial analysis too, since the display size comes from the tracker's own header. Off-screen fixations are counted separately rather than clamped to the edge, since a pile of them usually means a drift problem.
+
+Both save as SVG with the colours written in, so they drop straight into a figure.
 
 **Export trials** is the one you actually want: one row per trial, with your variables plus fixation and saccade counts, the first fixation and first saccade, their latencies, and dwell time and fixation count per AOI label.
 
@@ -161,7 +171,7 @@ If GitHub is unreachable, rate limited, or there are no releases published yet, 
 | `Enter` | Next match (highlight mode) |
 | `Shift` + `Enter` | Previous match |
 | `F3` / `Shift` + `F3` | Next / previous match, from anywhere |
-| `Ctrl` + `G` | Jump to the "Go to #" box — type a line number, `Enter` to go |
+| `Ctrl` + `G` | Jump to the "Go to #" box — type a line number, `Enter` to go (flip the dropdown to `Trial` to jump by trial instead) |
 
 ## Moving around the table
 
@@ -208,6 +218,7 @@ are copied, so hide what you don't want first via filters, column logical contro
 - The first line of an ASC (`** CONVERTED FROM ...`) records the path, edfapi version and time of the *original* conversion. None of that is in the EDF, so it's a default string you can override with `--converted-from-line`.
 - Blinks inside a saccade get merged into one, and missing gaze shows up as `.` with a huge scientific-notation amplitude. Both are `edf2asc` behaviours, faithfully reproduced, much to my own chagrin.
 - Trial and AOI matching is only as good as the radius you hand it. Check the preview and the rank columns before you trust a spreadsheet (coming from experience).
+- Builds are Windows-only for now. Nothing in here is platform-specific - `edfapi` comes from `eyelinkio`, which ships the library for each platform - so a macOS build is a packaging job: a `.icns` alongside `icon.ico`, a `.app` bundle, and the zipped bundle attached to the release (the updater already looks for `.dmg`, `.pkg` or `.zip` on a Mac). Until then a Mac needs `python gama.py`.
 - `gama.py` is only the launcher. The code lives in `gamalib/` next to it, a module per job - `convert.py` does EDF->ASC, `trials.py` the trial and AOI analysis, `server.py` the web bits, and so on. Keep those together along with `index.html`. If you ever touch `convert.py`, check byte-identity still holds before anything else (if you care about that):
   
   ```

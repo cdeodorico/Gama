@@ -131,8 +131,12 @@ def build_dataset(edf_path, converted_from_line, progress=None):
                 b["tmin"] = d["start"] if b["tmin"] is None else min(b["tmin"], d["start"])
                 t2 = d["end"] if isinstance(d["end"], int) else d["start"]
                 b["tmax"] = t2 if b["tmax"] is None else max(b["tmax"], t2)
+    from .trials import detect_screen
     meta = {
         "filename": os.path.basename(edf_path),
+        # The tracker states its own display size in the header, so the map
+        # does not have to wait for a trial analysis to know the geometry.
+        "screen": detect_screen(rows, parsed),
         "total": len(records),
         "tmin": min(times) if times else 0,
         "tmax": max(times) if times else 0,
