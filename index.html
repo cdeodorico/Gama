@@ -2,431 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Spectral:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gama</title>
+<title>EDF Explorer</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" href="/icon.png">
-<style>
-  :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2a2f3a;
-    --txt:#e6e9ef; --muted:#9aa3b2; --accent:#5b9dff; --accent2:#36c08f;
-    --row:#13161c; --rowalt:#161a21; --rowhover:#222838; --rowsel:#2a3550;
-    --hit:rgba(251,191,36,.22); --gridline:#0c0e12; --badgetxt:#0c0e12;
-    --rowh:24px; --fs:13px;
-  }
-  body.light{
-    --bg:#ffffff; --panel:#f4f5f7; --panel2:#e9ebef; --line:#d3d7de;
-    --txt:#12141a; --muted:#5d6673; --accent:#1c62d6; --accent2:#0f8a5f;
-    --row:#ffffff; --rowalt:#f7f8fa; --rowhover:#e6ecf7; --rowsel:#cfe0ff;
-    --hit:rgba(240,170,10,.30); --gridline:#e3e6ea; --badgetxt:#ffffff;
-  }
-  body.fs-s{--fs:12px;--rowh:21px}
-  body.fs-m{--fs:13px;--rowh:24px}
-  body.fs-l{--fs:15px;--rowh:29px}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
-    font:var(--fs)/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  button,input,select{font:inherit;color:inherit}
-  .app{display:flex;flex-direction:column;height:100vh}
-  header{display:flex;align-items:center;gap:14px;padding:8px 14px;
-    background:var(--panel);border-bottom:1px solid var(--line);flex:none}
-  header h1{font-size:14px;font-weight:600;margin:0;letter-spacing:.3px}
-  header img.appicon{height:22px;width:22px;object-fit:contain;border-radius:5px}
-  header .file{color:var(--accent);font-weight:600}
-  header .count{color:var(--muted)}
-  header .spacer{flex:1}
-  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
-    padding:6px 11px;cursor:pointer;color:var(--txt)}
-  .btn:hover{border-color:var(--accent);background:var(--rowhover)}
-  .btn.sm{padding:5px 8px;font-size:12px}
-  .btn.primary{border-color:var(--accent2);color:var(--accent2);font-weight:600}
-  .btn.danger{border-color:#7a3b3b;color:#e08585;background:rgba(200,70,70,.10)}
-  .btn.danger:hover{border-color:#c04a4a;color:#ff9b9b;background:rgba(200,70,70,.22)}
-  body.light .btn.danger{border-color:#d9a3a3;color:#b03030;
-    background:rgba(200,70,70,.08)}
-  body.light .btn.danger:hover{border-color:#c04a4a;color:#8f2020;
-    background:rgba(200,70,70,.16)}
-  .btn.primary:hover{background:var(--rowhover);border-color:var(--accent2)}
-  .btn:disabled{opacity:.45;cursor:default}
-  .tabs{display:flex;gap:3px;background:var(--panel);flex:none;
-    border-bottom:1px solid var(--line);padding:4px 8px 0;overflow-x:auto}
-  .tab{padding:7px 14px;cursor:pointer;color:var(--muted);
-    border:1px solid transparent;border-bottom:none;border-radius:7px 7px 0 0;
-    white-space:nowrap;font-size:12.5px;max-width:280px;overflow:hidden;
-    text-overflow:ellipsis}
-  .tab:hover{color:var(--txt);background:var(--panel2)}
-  .tab.active{color:var(--txt);background:var(--bg);border-color:var(--line);
-    font-weight:600}
-  .tab .x{margin-left:8px;color:var(--muted);font-weight:700;border-radius:3px;
-    padding:0 3px}
-  .tab .x:hover{color:#fff;background:#c0392b}
-  .tab.add{font-weight:700;color:var(--accent2)}
-  .tab.filesbtn{color:var(--txt);background:var(--panel2);font-weight:600}
-  .tdot{width:6px;height:6px;border-radius:50%;background:var(--accent2);
-    display:inline-block;margin-left:7px;vertical-align:middle;flex:none}
-  .filepick{position:fixed;z-index:70;display:none;width:min(430px,90vw);
-    background:var(--panel);border:1px solid var(--line);border-radius:9px;
-    box-shadow:0 14px 40px rgba(0,0,0,.5);overflow:hidden}
-  .filepick.open{display:block}
-  .filepick input{margin:0;border:0;border-bottom:1px solid var(--line);
-    border-radius:0;padding:9px 12px}
-  .filepick input:focus{outline:none}
-  .fplist{max-height:340px;overflow:auto;padding:4px}
-  .fprow{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;
-    cursor:pointer;font-size:12px}
-  .fprow:hover{background:var(--rowhover)}
-  .fprow.on{background:var(--rowsel)}
-  .fpname{flex:none;font-weight:600}
-  .fptag{flex:none;font-size:10px;color:var(--accent2);border:1px solid var(--accent2);
-    border-radius:8px;padding:0 5px}
-  .fpdir{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;
-    white-space:nowrap;direction:rtl;text-align:left}
-  .fpempty{padding:14px;color:var(--muted);text-align:center;font-size:12px}
-  /* modal file browser */
-  .mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
-    display:none;align-items:center;justify-content:center}
-  .mask.open{display:flex}
-  /* scanpath & aggregate map */
-  .mapdlg{width:min(900px,95vw);height:min(700px,92vh);position:relative}
-  .mapbody{flex:1;overflow:auto;padding:10px 14px 14px}
-  .mapsvg{width:100%;height:auto;display:block;border-radius:6px}
-  .mapsvg .screen{fill:var(--bg);stroke:var(--line)}
-  .mapsvg .aoi{fill:rgba(91,157,255,.10);stroke:var(--accent);stroke-width:1}
-  .mapsvg .aoit{fill:var(--muted);font-size:9px;text-anchor:middle}
-  .mapsvg .aoic{fill:var(--accent)}
-  .mapsvg .sacc{stroke:var(--muted);stroke-width:1.3;opacity:.8;fill:none}
-  .mapsvg .sacc.out{opacity:.3;stroke-dasharray:3 3}
-  .mapsvg .fix{stroke:var(--panel);stroke-width:1;cursor:pointer}
-  .mapsvg .fix.hit{fill:var(--accent2)}
-  .mapsvg .fix.miss{fill:#e05252}
-  .mapsvg .fix.out{opacity:.35}
-  .mapsvg .spnum{fill:var(--bg);font-size:8.5px;font-weight:700;
-    text-anchor:middle;pointer-events:none}
-  .mapsvg .heat{shape-rendering:crispEdges;stroke:none}
-  .mapsvg .cross{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4}
-  .maprow{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
-  .mapside{flex:1;min-width:200px;font-size:11.5px}
-  .mapside h4{margin:0 0 4px;font-size:11px;color:var(--muted);
-    text-transform:uppercase;letter-spacing:.04em}
-  .mapside table{border-collapse:collapse;width:100%;margin-bottom:10px}
-  .mapside td{padding:2px 6px 2px 0;border-bottom:1px solid var(--gridline);
-    font-variant-numeric:tabular-nums}
-  .mapside td.k{color:var(--muted);white-space:nowrap}
-  .mapnote{color:var(--muted);font-size:11px;margin:8px 0 0}
-  .mapscale{display:flex;align-items:center;gap:6px;margin:6px 0 10px;
-    font-size:10.5px;color:var(--muted)}
-  .mapscale .bar{flex:1;height:8px;border-radius:4px;
-    background:linear-gradient(90deg,rgba(54,192,143,.10),rgba(54,192,143,1))}
-  .mapchips{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}
-  .mapchips span{background:var(--panel2);border:1px solid var(--line);
-    border-radius:9px;padding:1px 7px;font-size:11px}
-  /* trials & AOI panel */
-  .trdlg{width:min(880px,95vw);height:min(660px,92vh);position:relative}
-  .trtabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line)}
-  .trtab{padding:7px 12px;cursor:pointer;color:var(--muted);font-size:12px;
-    border-bottom:2px solid transparent;user-select:none}
-  .trtab:hover{color:var(--txt)}
-  .trtab.active{color:var(--txt);border-bottom-color:var(--accent);font-weight:600}
-  .trbody{flex:1;overflow:auto;padding:12px 16px}
-  .trrow{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
-  .trrow.sub{padding-left:14px}
-  .trrow > label{min-width:118px;color:var(--muted);font-size:12px;
-    display:flex;align-items:center;gap:6px}
-  .trrow label.inl{min-width:0;cursor:pointer}
-  .trrow select,.trrow input[type=text],.trrow input[type=number]{margin:0}
-  .trrow select.mk{width:190px}
-  .trrow select.mode{width:120px}
-  .trrow select.fld{width:120px;min-width:120px}
-  .trrow input[type=text]{flex:1;min-width:150px}
-  .dimlab{color:var(--muted);font-size:12px}
-  .trex{margin:-2px 0 10px 126px;font-family:ui-monospace,Menlo,Consolas,monospace;
-    font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;
-    text-overflow:ellipsis}
-  .trex b{color:var(--accent2);font-weight:600}
-  .trhint{color:var(--muted);font-size:11px;margin:0 0 10px 126px}
-  .trsep{border:0;border-top:1px solid var(--line);margin:14px 0}
-  .trchips{display:flex;gap:6px;flex-wrap:wrap}
-  .trchip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);
-    border:1px solid var(--line);border-radius:12px;padding:2px 8px;font-size:11px}
-  .trchip span{cursor:pointer;color:var(--muted);font-weight:700}
-  .trchip span:hover{color:#e05252}
-  .trpv{font-size:12px}
-  .trpv table{border-collapse:collapse;width:100%}
-  .trpv th,.trpv td{border:1px solid var(--line);padding:3px 7px;text-align:left;
-    white-space:nowrap;font-variant-numeric:tabular-nums}
-  .trpv th{background:var(--panel2);position:sticky;top:0}
-  .trpv .tcard{border:1px solid var(--line);border-radius:8px;padding:9px 11px;
-    margin-bottom:9px;background:var(--panel2)}
-  .trpv .tcard h4{margin:0 0 6px;font-size:12px}
-  .trpv .kvs{color:var(--muted);font-size:11px;margin-bottom:6px;
-    white-space:normal;word-break:break-word}
-  .trmini{display:flex;gap:12px;align-items:flex-start;margin:8px 0 4px 126px;
-    padding:10px;background:var(--panel2);border:1px solid var(--line);
-    border-radius:8px}
-  .trminipic{flex:none}
-  .trminitxt{flex:1;min-width:0;font-size:12px}
-  .trminitxt b{color:var(--txt)}
-  #trMiniInfo{color:var(--muted);margin-top:3px}
-  .tcardbody{display:flex;gap:12px;align-items:flex-start}
-  .tcardinfo{flex:1;min-width:0}
-  .plotwrap{flex:none}
-  .trplot{width:270px;height:auto;display:block;border-radius:5px}
-  .trplot .screen{fill:var(--bg);stroke:var(--line)}
-  .trplot .aoi{fill:rgba(91,157,255,.13);stroke:var(--accent);stroke-width:1}
-  .trplot .aoic{fill:var(--accent)}
-  .trplot .aoit{fill:var(--muted);font-size:8px;text-anchor:middle}
-  .trplot .fix{opacity:.9}
-  .trplot .fix.hit{fill:var(--accent2)}
-  .trplot .fix.miss{fill:#e05252}
-  .plotkey{color:var(--muted);font-size:10px;margin-top:3px;text-align:center}
-  .plotkey .k{display:inline-block;width:7px;height:7px;border-radius:50%;
-    margin:0 3px 0 7px;vertical-align:middle}
-  .plotkey .k.hit{background:var(--accent2)}
-  .plotkey .k.miss{background:#e05252}
-  .trwarn{background:rgba(224,82,82,.12);border:1px solid #e05252;border-radius:6px;
-    padding:7px 10px;margin-bottom:10px;font-size:12px}
-  .trok{color:var(--accent2)}
-  /* command palette */
-  .pal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;
-    display:none;justify-content:center;align-items:flex-start}
-  .pal-wrap.open{display:flex}
-  .pal{margin-top:12vh;width:min(620px,92vw);background:var(--panel);
-    border:1px solid var(--line);border-radius:12px;overflow:hidden;
-    box-shadow:0 24px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;
-    max-height:70vh}
-  .pal input{margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;
-    padding:14px 16px;font-size:15px;background:transparent}
-  .pal input:focus{outline:none}
-  .pal-list{overflow:auto;padding:6px}
-  .pal-item{display:flex;align-items:center;gap:10px;padding:8px 10px;
-    border-radius:7px;cursor:pointer}
-  .pal-item .pi-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .pal-item .pi-cat{color:var(--muted);font-size:11px;text-transform:uppercase;
-    letter-spacing:.5px}
-  .pal-item .pi-key{color:var(--muted);font-size:11px;border:1px solid var(--line);
-    border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums}
-  .pal-item.on{background:var(--rowsel)}
-  .pal-item mark{background:transparent;color:var(--accent);font-weight:700}
-  .pal-empty{padding:16px;color:var(--muted);text-align:center}
-  .pal-foot{border-top:1px solid var(--line);padding:6px 12px;color:var(--muted);
-    font-size:11px}
-  .dlg{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    width:min(760px,92vw);height:min(560px,88vh);display:flex;
-    flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.6)}
-  .dlg header{background:transparent;border:0;padding:12px 14px 8px}
-  .dlg h2{margin:0;font-size:14px;font-weight:600}
-  .crumbs{display:flex;gap:6px;align-items:center;padding:0 14px 8px;
-    flex-wrap:wrap}
-  .crumbs input{flex:1;min-width:220px;margin:0}
-  .fbody{flex:1;overflow:auto;margin:0 14px;border:1px solid var(--line);
-    border-radius:8px;background:var(--panel2)}
-  .fitem{display:flex;align-items:center;gap:9px;padding:6px 10px;
-    cursor:pointer;border-bottom:1px solid var(--gridline)}
-  .fitem:hover{background:var(--rowhover)}
-  .fitem .ic{width:16px;text-align:center;opacity:.85}
-  .fitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .fitem .sz{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
-  .fitem.on{background:var(--rowsel)}
-  .fitem.file{cursor:default;opacity:.85}
-  .fitem.file:hover{background:transparent}
-  .fbchk{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;
-    margin-right:auto;cursor:pointer;user-select:none}
-  .watchbar{display:flex;align-items:center;gap:8px;margin-left:12px;
-    background:var(--panel2);border:1px solid var(--line);border-radius:6px;
-    padding:3px 8px;font-size:12px;color:var(--muted)}
-  .watchbar b{color:var(--txt);font-weight:600;max-width:280px;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap}
-  .watchbar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);
-    animation:wpulse 1.4s infinite}
-  .recentwrap{margin:8px 14px 0;border:1px solid var(--line);border-radius:8px;
-    background:var(--panel2);max-height:150px;overflow:auto;flex:none}
-  .recenthdr{display:flex;align-items:center;justify-content:space-between;
-    padding:5px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;
-    letter-spacing:.5px;position:sticky;top:0;background:var(--panel2)}
-  .recentlist .ritem{display:flex;align-items:center;gap:8px;padding:4px 10px;
-    cursor:pointer;font-size:12px}
-  .recentlist .ritem:hover{background:var(--rowhover)}
-  .recentlist .ritem.gone{opacity:.45;cursor:default}
-  .recentlist .rname{flex:none;font-weight:600}
-  .recentlist .rdir{flex:1;color:var(--muted);overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
-  .dropmask{position:fixed;inset:0;z-index:80;display:none;align-items:center;
-    justify-content:center;background:rgba(0,0,0,.45);pointer-events:none}
-  .dropmask.show{display:flex}
-  .dropbox{border:2px dashed var(--accent);border-radius:14px;padding:26px 40px;
-    background:var(--panel);color:var(--txt);font-size:15px;font-weight:600}
-  .updpill{display:none;align-items:center;gap:6px;margin-left:10px;
-    background:rgba(54,192,143,.14);border:1px solid var(--accent2);
-    color:var(--accent2);border-radius:12px;padding:2px 9px;font-size:11px;
-    cursor:pointer;text-decoration:none;white-space:nowrap}
-  .updpill:hover{background:rgba(54,192,143,.26)}
-  .updpill.show{display:inline-flex}
-  .updrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-    background:var(--panel2);border:1px solid var(--line);border-radius:8px;
-    padding:9px 11px;margin:6px 0 10px}
-  .updrow .grow{flex:1;min-width:180px}
-  .watchbar.off{opacity:.75}
-  .watchbar.off .dot{background:var(--muted);animation:none}
-  @keyframes wpulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .dlgfoot{display:flex;gap:8px;align-items:center;padding:12px 14px}
-  .dlgfoot .sel{color:var(--muted);flex:1;font-size:12px}
-  .empty-state{position:absolute;inset:0;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:12px;color:var(--muted);
-    z-index:6}
-  .empty-state .big{font-size:15px;color:var(--txt)}
-  .main{display:flex;flex:1;min-height:0}
-  aside{width:268px;flex:none;background:var(--panel);border-right:1px solid var(--line);
-    overflow-y:auto;padding:12px;padding-bottom:52px}
-  .aboutbar{position:fixed;left:0;bottom:0;width:268px;padding:8px 12px;
-    background:var(--panel);border-top:1px solid var(--line);
-    border-right:1px solid var(--line);z-index:9}
-  .aboutbar .btn{width:100%}
-  /* about dialog content */
-  .about{padding:0 16px 4px;overflow:auto;line-height:1.55}
-  .about h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;
-    color:var(--accent);margin:18px 0 8px}
-  .about h3:first-child{margin-top:6px}
-  .about p{margin:0 0 10px;color:var(--txt)}
-  .about dl{display:grid;grid-template-columns:132px 1fr;gap:5px 12px;margin:0 0 6px}
-  .about dt{color:var(--txt);font-weight:600}
-  .about dd{margin:0;color:var(--muted)}
-  .about code{background:var(--panel2);border:1px solid var(--line);
-    border-radius:4px;padding:0 4px;font-size:12px}
-  .about .pill{display:inline-block;width:9px;height:9px;border-radius:2px;
-    margin-right:6px;vertical-align:middle}
-  aside h3{font-size:11px;text-transform:uppercase;letter-spacing:.6px;
-    color:var(--muted);margin:16px 0 7px}
-  aside h3:first-child{margin-top:2px}
-  .grp{display:flex;align-items:center;gap:7px;padding:3px 4px;border-radius:5px;cursor:pointer}
-  .grp:hover{background:var(--panel2)}
-  .grp .c{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11px}
-  .grp.sub{padding-left:20px;font-size:12px}
-  .swatch{width:9px;height:9px;border-radius:2px;flex:none}
-  input[type=text],input[type=number],select{width:100%;background:var(--panel2);
-    border:1px solid var(--line);border-radius:5px;padding:5px 7px;margin-bottom:6px}
-  .row2{display:flex;gap:6px}
-  .row2 input{margin-bottom:6px}
-  label.chk{display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:4px}
-  .presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
-  .saved{display:flex;flex-direction:column;gap:3px;margin-bottom:6px}
-  .pri{display:flex;align-items:center;gap:6px;padding:4px 7px;border-radius:5px;
-    cursor:pointer;background:var(--panel2);border:1px solid var(--line)}
-  .pri:hover{border-color:var(--accent)}
-  .pri .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pri .del{color:var(--muted);cursor:pointer;padding:0 3px;font-weight:700}
-  .pri .del:hover{color:#f472b6}
-  .empty{color:var(--muted);font-size:11px;font-style:italic;margin-bottom:6px}
-  .tablewrap{flex:1;min-width:0;display:flex;flex-direction:column}
-  .scroll{flex:1;overflow:auto;position:relative}
-  .thead{display:flex;position:sticky;top:0;z-index:5;background:var(--panel2);
-    border-bottom:1px solid var(--line)}
-  .th{flex:none;padding:6px 8px;font-weight:600;font-size:12px;color:var(--muted);
-    border-right:1px solid var(--line);cursor:pointer;white-space:nowrap;
-    overflow:hidden;text-overflow:ellipsis;user-select:none}
-  .th{position:relative;display:flex;align-items:center;gap:0}
-  .th:hover{color:var(--txt)}
-  .th .thlab{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
-  .th .grip{position:absolute;top:0;right:-3px;width:7px;height:100%;
-    cursor:col-resize;z-index:2}
-  .th .grip:hover{background:var(--accent);opacity:.5}
-  .th.dragging{opacity:.45}
-  .th.over{box-shadow:inset 3px 0 0 var(--accent)}
-  .th .ar{color:var(--accent);margin-left:3px}
-  .cfrow{display:flex;position:sticky;top:var(--headh,29px);z-index:4;
-    background:var(--panel);border-bottom:1px solid var(--line)}
-  .cfrow.off{display:none}
-  .cf{flex:none;border-right:1px solid var(--line);padding:2px 3px}
-  .cf input{width:100%;margin:0;padding:2px 5px;font-size:11px;
-    background:var(--bg);border:1px solid var(--line);border-radius:3px}
-  .cf input.bad{border-color:#e05252}
-  .cf input:focus{border-color:var(--accent);outline:none}
-  .vport{position:relative}
-  .tr{display:flex;position:absolute;left:0;right:0;height:var(--rowh);
-    align-items:center;border-bottom:1px solid var(--gridline)}
-  .tr:nth-child(even){background:var(--rowalt)}
-  .tr:nth-child(odd){background:var(--row)}
-  .tr:hover{background:var(--rowhover)}
-  .tr.sel{background:var(--rowsel)}
-  .tr.hit{box-shadow:inset 3px 0 0 #fbbf24;background:var(--hit)}
-  .tr.sumrow{background:var(--panel2);cursor:pointer;border-bottom:1px solid var(--line)}
-  .tr.sumrow:hover{background:var(--rowhover)}
-  .tr.sumrow .sumcell{display:flex;align-items:center;gap:7px;font-size:12px;
-    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-  .tr.sumrow .dim{color:var(--muted)}
-  .chev{cursor:pointer;color:var(--muted);font-size:9px;width:11px;display:inline-block;
-    text-align:center;flex:none}
-  .chev:hover{color:var(--txt)}
-  .chev.open{color:var(--accent)}
-  .tr.flagged{background:rgba(251,191,36,.10)}
-  .tr.flagged.sel{background:var(--rowsel)}
-  .idxcell{display:flex;align-items:center;gap:4px}
-  .flagmark{cursor:pointer;opacity:.30;font-size:11px;line-height:1}
-  .flagmark.on{opacity:1;color:#f5a623}
-  .flagmark:hover{opacity:.8}
-  .noteedit{display:flex;align-items:center;gap:10px;margin-bottom:10px;
-    padding:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px}
-  .noteedit .flagtog{display:flex;align-items:center;gap:6px;cursor:pointer;
-    white-space:nowrap;user-select:none}
-  .noteedit input[type=text]{flex:1;margin:0}
-  .noteedit .notehint{color:var(--accent2);font-size:11px;min-width:34px}
-  .tr.hit.sel{background:var(--rowsel)}
-  .tr.hit.cur{outline:1px solid #fbbf24;outline-offset:-1px}
-  .findbar{display:flex;align-items:center;gap:6px;margin:-2px 0 8px}
-  .findbar .n{color:var(--muted);font-size:11px;flex:1;
-    font-variant-numeric:tabular-nums}
-  .findbar .btn{padding:2px 7px;line-height:1.2}
-  #goto{width:80px;margin:0;text-align:center}
-  #gotoMode{width:auto;margin:0;padding:3px 4px}
-  .td{flex:none;padding:0 8px;height:var(--rowh);line-height:var(--rowh);
-    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
-    font-variant-numeric:tabular-nums;border-right:1px solid var(--gridline)}
-  .td.msg{font-variant-numeric:normal;color:var(--txt)}
-  .badge{display:inline-block;padding:0 6px;border-radius:9px;font-size:10.5px;
-    font-weight:700;line-height:16px;color:var(--badgetxt)}
-  .details{flex:none;height:0;overflow:hidden;background:var(--panel);
-    border-top:1px solid var(--line);transition:height .12s}
-  .details.open{height:190px;overflow:auto;padding:10px 14px;position:relative}
-  .detclose{position:absolute;top:8px;right:10px;z-index:2;background:var(--panel2);
-    border:1px solid var(--line);color:var(--muted);border-radius:6px;
-    width:24px;height:24px;cursor:pointer;line-height:1;font-size:12px}
-  .detclose:hover{color:var(--txt);border-color:var(--accent)}
-  .details table{border-collapse:collapse}
-  .details td{padding:2px 12px 2px 0;vertical-align:top}
-  .details td.k{color:var(--muted);white-space:nowrap}
-  .details .raw{margin-top:8px;padding:8px;background:var(--panel2);border-radius:6px;
-    white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;
-    color:var(--txt);max-height:90px;overflow:auto}
-  .menu{position:absolute;background:var(--panel2);border:1px solid var(--line);
-    border-radius:8px;padding:6px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.5);
-    display:none;min-width:170px}
-  .menu.open{display:block}
-  .menu label{display:flex;gap:7px;align-items:center;padding:3px 5px;cursor:pointer}
-  .mtitle{font-size:10px;text-transform:uppercase;letter-spacing:.5px;
-    color:var(--muted);padding:6px 8px 3px}
-  .mi{padding:6px 10px;border-radius:5px;cursor:pointer;white-space:nowrap}
-  .mi:hover{background:var(--rowsel)}
-  .loading{position:absolute;inset:0;display:flex;align-items:center;
-    justify-content:center;color:var(--muted);font-size:14px;
-    background:var(--bg);z-index:8}
-  .loading.hidden{display:none}
-  .hint{color:var(--muted);font-size:11px;margin:-2px 0 8px}
-</style>
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 <div class="app">
   <header>
-    <img class="appicon" src="/icon.png" alt="" onerror="this.remove()">
-    <h1>Gama</h1>
+    <img class="appicon" src="/icon.png" alt="gama"
+         onerror="this.remove()">
+    <h1>gama</h1>
     <span class="file" id="fname">…</span>
     <span class="count" id="count"></span>
     <a class="updpill" id="updPill" target="_blank" rel="noopener"></a>
     <span class="spacer"></span>
-    <select id="gotoMode" title="Jump by line number, or by trial once trials are classified">
-      <option value="line">Line</option>
-      <option value="trial" disabled>Trial</option>
-    </select>
     <input type="number" id="goto" placeholder="Go to #" title="Go to line number (Ctrl+G)">
     <button class="btn" id="trialsBtn" title="Segment trials and match fixations to areas of interest">Trials ▾</button>
-    <button class="btn" id="mapBtn" title="Draw the selected trial's scanpath, or a map of the filtered set">Map</button>
     <button class="btn" id="collapseBtn" title="Collapse each recording block to one summary row">Collapse blocks</button>
     <button class="btn" id="filtBtn" title="Show per-column filter row">Filters ▾</button>
     <button class="btn" id="colsBtn">Columns ▾</button>
@@ -469,8 +65,6 @@
       <select id="tsMode">
         <option value="abs">Absolute</option>
         <option value="rel">Relative to file start</option>
-        <option value="trial" disabled>Relative to trial start</option>
-        <option value="win" disabled>Relative to window onset</option>
       </select>
 
       <h3>Time range</h3>
@@ -542,33 +136,11 @@
       <div class="mtitle">Share</div>
       <div class="mi" id="copyLink">Copy link to this view</div>
       <div class="mi" id="copyRows">Copy selected rows</div>
-      <div class="mtitle">Sidecar</div>
       <label class="mi" id="sidecarRow" style="display:flex;align-items:center;gap:7px"
              title="Write a small .gama.json next to CSV/TSV/HTML recording the filters, version and source. Not written for ASC.">
         <input type="checkbox" id="sidecarChk"> include provenance .json
       </label>
     </div>
-  </div>
-</div>
-
-<div class="mask" id="mapMask">
-  <div class="dlg mapdlg">
-    <header style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <h2 style="flex:1;min-width:120px" id="mapTitle">Map</h2>
-      <select id="mapMode" style="width:auto;margin:0">
-        <option value="scan">Trial scanpath</option>
-        <option value="agg">Aggregate over the filtered set</option>
-      </select>
-      <select id="mapMetric" style="width:auto;margin:0" title="What the shading counts">
-        <option value="count">by fixation count</option>
-        <option value="dwell">by dwell time</option>
-      </select>
-      <button class="btn sm" id="mapPrev" title="Previous trial">◀</button>
-      <button class="btn sm" id="mapNext" title="Next trial">▶</button>
-      <button class="btn sm" id="mapSave" title="Save the drawing as an SVG file">Save SVG</button>
-      <button class="btn sm" id="mapCloseBtn" title="Close (Esc)">✕</button>
-    </header>
-    <div class="mapbody" id="mapBody"></div>
   </div>
 </div>
 
@@ -731,7 +303,7 @@
 
 <div class="mask" id="aboutMask">
   <div class="dlg">
-    <header><h2>About Gama &mdash; EyeLink EDF Explorer <span id="verTag"
+    <header><h2>About gama &mdash; EyeLink EDF Explorer <span id="verTag"
       style="color:var(--muted);font-weight:400"></span></h2></header>
     <div class="about">
       <p>gama opens SR&nbsp;Research EyeLink <code>.EDF</code> recordings and shows them
@@ -1026,42 +598,26 @@
 <script>
 let ROWH = 24;
 const BUF = 12;
-const GROUP_COLOR = {PREAMBLE:'#6b7280',HEADER:'#a78bfa',END:'#f472b6',
-  INPUT:'#fbbf24',MSG:'#5b9dff',FIX:'#36c08f',SACC:'#ff8a5b',BLINK:'#e879f9'};
+// Event-type colours live in CSS (so they follow the theme); read them once.
+function groupColor(g){
+  const v=getComputedStyle(document.documentElement).getPropertyValue('--c'+g).trim();
+  return v || '#8b8275';
+}
+const GROUP_COLOR = new Proxy({}, { get:(_,g)=>groupColor(String(g)) });
 let DEFAULT_COLS=null;   // pristine copy, for resetting the layout
 const C = {idx:0,cat:1,grp:2,mkind:3,start:4,end:5,dur:6,eye:7,x1:8,y1:9,
   x2:10,y2:11,amp:12,vel:13,pupil:14,resx:15,resy:16,val:17,raw:18,block:19};
 const GROUPS=['PREAMBLE','HEADER','END','INPUT','MSG','FIX','SACC','BLINK'];
 const KINDS=['experiment','config','cal','draw'];
 
-// Timestamps can be shown four ways: as recorded, minus the file's first
-// timestamp, or — once trials have been classified — minus the start of the
-// row's own trial or the onset of its analysis window. The last two need the
-// row, not just the value, so every timestamp getter passes it in.
-let TSMODE='abs', TREF=0;
-let REL=false;                // kept in step with TSMODE for the export payload
-function tbase(r){
-  if(TSMODE==='rel') return TREF;
-  if(!TRMAP||!TRI) return null;
-  const t=TRI.t0.get(TRMAP.trial[r[C.idx]]);
-  if(!t) return null;
-  const b=(TSMODE==='win' && t[1]!=null) ? t[1] : t[0];
-  return (typeof b==='number') ? b : null;
-}
-function tdisp(v,r){
-  if(TSMODE==='abs' || typeof v!=='number') return v;
-  // Some rows are not rows at all — a collapsed block spans many trials — so
-  // without one to look up, the trial-based modes fall back to as recorded.
-  if(!r) return (TSMODE==='rel') ? v-TREF : v;
-  const b=tbase(r);
-  return b===null ? '' : v-b;      // outside every trial there is nothing to subtract
-}
+let REL=false, TREF=0;
+function tdisp(v){ return (REL && typeof v==='number') ? v-TREF : v; }
 
 const COLS = [
   {k:'idx',  label:'#',     w:64,  num:true,  get:r=>r[C.idx]},
   {k:'cat',  label:'Type',  w:92,  badge:true,get:r=>r[C.cat]},
-  {k:'start',label:'Start', w:100, num:true,  get:r=>tdisp(r[C.start],r)},
-  {k:'end',  label:'End',   w:100, num:true,  get:r=>tdisp(r[C.end],r)},
+  {k:'start',label:'Start', w:100, num:true,  get:r=>tdisp(r[C.start])},
+  {k:'end',  label:'End',   w:100, num:true,  get:r=>tdisp(r[C.end])},
   {k:'dur',  label:'Dur',   w:58,  num:true,  get:r=>r[C.dur]},
   {k:'eye',  label:'Eye',   w:46,            get:r=>r[C.eye]},
   {k:'x1',   label:'X1',    w:74,  num:true,  get:r=>r[C.x1]},
@@ -1266,8 +822,7 @@ async function loadFile(id){
   }
   active=id; ROWS=cache[id].rows; META=cache[id].meta; TREF=META.tmin;
   // trial/AOI results belong to one file; never show one file's against another's
-  TRMAP=TRMAPS[id]||null; TRRES=TRRESS[id]||null; TRI=TRIDX[id]||null;
-  syncVarCols(); syncTsModes();
+  TRMAP=TRMAPS[id]||null; TRRES=TRRESS[id]||null;
   selIdx=-1; SEL.clear(); anchorPos=-1; expanded.clear(); $('details').classList.remove('open');
   $('fname').textContent=META.filename;
   await loadNotes(id);
@@ -1410,42 +965,10 @@ function gotoLine(n){
   selectRow(r[C.idx],dpos,false,false);
   scrollToPos(dpos);
 }
-// Once trials are classified the same box jumps by trial instead, which is how
-// you actually navigate a thousand-trial recording.
-function gotoTrial(n){
-  if(!TRMAP||!TRI){ toast('Classify trials first (Trials ▾)'); return; }
-  if(!view.length) return;
-  let pos=view.findIndex(r=>TRMAP.trial[r[C.idx]]===n);
-  if(pos<0){
-    let best=-1, bd=null;
-    for(let i=0;i<view.length;i++){
-      const tn=TRMAP.trial[view[i][C.idx]];
-      if(!(tn>0)) continue;
-      const d=Math.abs(tn-n);
-      if(bd===null||d<bd){ bd=d; best=i; }
-    }
-    if(best<0){ toast('No trials in the current view'); return; }
-    pos=best;
-    toast(`Trial ${n} isn't in the current view — jumped to trial `
-          +TRMAP.trial[view[pos][C.idx]]);
-  }
-  const r=view[pos];
-  ensureVisibleBlock(r);
-  const dpos=dispPosByIdx.get(r[C.idx]);
-  selectRow(r[C.idx],dpos,false,false);
-  scrollToPos(dpos);
-}
-function syncGotoBox(){
-  const byTrial=$('gotoMode').value==='trial';
-  $('goto').placeholder=byTrial?'Trial #':'Go to #';
-  $('goto').title=(byTrial?'Go to trial number':'Go to line number')+' (Ctrl+G)';
-}
-$('gotoMode').onchange=()=>{ syncGotoBox(); $('goto').focus(); $('goto').select(); };
 $('goto').addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;
   const n=parseInt(e.target.value,10);
-  if(isNaN(n)) return;
-  if($('gotoMode').value==='trial') gotoTrial(n); else gotoLine(n);
+  if(!isNaN(n)) gotoLine(n);
 });
 
 // ---- share a link to the current view ----
@@ -1582,7 +1105,7 @@ async function quitGama(){
     '<div style="display:flex;height:100vh;align-items:center;justify-content:center;'+
     'flex-direction:column;gap:10px;font:15px -apple-system,\'Segoe UI\',Roboto,sans-serif;'+
     'background:var(--bg);color:var(--txt)">'+
-    '<div style="font-weight:600">Gama has stopped.</div>'+
+    '<div style="font-weight:600">gama has stopped.</div>'+
     '<div style="color:var(--muted);font-size:13px">You can close this tab.</div></div>';
 }
 $('quitBtn').onclick=quitGama;
@@ -1716,7 +1239,6 @@ $('aboutMask').onclick=e=>{ if(e.target===$('aboutMask')) $('aboutMask').classLi
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   if($('palMask').classList.contains('open')) closePalette();
-  else if($('mapMask').classList.contains('open')) mapClose();
   else if($('trMask').classList.contains('open')) trClose();
   else if($('aboutMask').classList.contains('open')) $('aboutMask').classList.remove('open');
   else if($('mask').classList.contains('open')){ closeBrowser(); }
@@ -1754,10 +1276,7 @@ function resetSession(){
   cache={}; active=-1; ROWS=[]; META=null; view=[]; disp=[];
   SEL.clear(); anchorPos=-1; selIdx=-1; NOTES={};
   TRMAP=null; TRRES=null; SUG=null; TRMAPS={}; TRRESS={};
-  TRI=null; TRIDX={}; mapTrial=null; mapClose();
-  for(let i=COLS.length-1;i>=0;i--) if(COLS[i].k.slice(0,2)==='v_') COLS.splice(i,1);
   COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=true; });
-  syncTsModes();
   buildColMenu(); buildHead();
   $('details').classList.remove('open');
 }
@@ -1833,13 +1352,8 @@ function updateCounts(){
     if(s) s.textContent=(META.kind_counts[k]||0).toLocaleString();});
 }
 function updatePlaceholders(){
-  if(!META) return;
-  if(TSMODE==='rel'){ $('tmin').placeholder='0'; $('tmax').placeholder=(META.tmax-META.tmin);
+  if(REL){ $('tmin').placeholder='0'; $('tmax').placeholder=(META.tmax-META.tmin);
     $('trange').textContent=`data: 0 – ${META.tmax-META.tmin} (relative)`; }
-  else if(TSMODE==='trial'||TSMODE==='win'){
-    $('tmin').placeholder='from'; $('tmax').placeholder='to';
-    $('trange').textContent='ms from '+(TSMODE==='win'?'window onset':'trial start')
-      +' — lines outside a trial are left in place'; }
   else { $('tmin').placeholder=META.tmin; $('tmax').placeholder=META.tmax;
     $('trange').textContent=`data: ${META.tmin} – ${META.tmax}`; }
 }
@@ -1947,8 +1461,6 @@ function loadColLayout(){
 function resetColLayout(){
   try{ localStorage.removeItem('gama.cols'); }catch(e){}
   COLS.length=0; DEFAULT_COLS.forEach(c=>COLS.push(Object.assign({},c)));
-  if(TRI) COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
-  syncVarCols();
   buildHead(); buildColMenu(); layout(); render();
   toast('Columns reset');
 }
@@ -2070,10 +1582,7 @@ function apply(){
   const incM=makeMatcher(F.msgInc,F.msgRe), excM=makeMatcher(F.msgExc,F.msgRe);
   const srch=makeMatcher(F.search,F.searchRe);
   let tlo=F.tmin, thi=F.tmax;
-  // In the trial-based modes each row has its own reference, so the bounds
-  // cannot be shifted once for the whole pass.
-  const perRow=(TSMODE==='trial'||TSMODE==='win');
-  if(TSMODE==='rel'){ if(tlo!==null) tlo+=TREF; if(thi!==null) thi+=TREF; }
+  if(REL){ if(tlo!==null) tlo+=TREF; if(thi!==null) thi+=TREF; }
   const eye=F.eye;
   view=[];
   for(let i=0;i<ROWS.length;i++){
@@ -2081,7 +1590,7 @@ function apply(){
     if(!F.groups.has(g)) continue;
     if(g==='MSG' && !F.kinds.has(r[C.mkind]||'experiment')) continue;
     if(eye && r[C.eye] && r[C.eye]!==eye) continue;
-    const t=perRow?tdisp(r[C.start],r):r[C.start];
+    const t=r[C.start];
     if(tlo!==null && typeof t==='number' && t<tlo) continue;
     if(thi!==null && typeof t==='number' && t>thi) continue;
     const dv=r[C.dur];
@@ -2121,7 +1630,6 @@ function apply(){
     `${view.length.toLocaleString()} of ${ROWS.length.toLocaleString()} lines` +
     (SEL.size ? `  ·  ${SEL.size.toLocaleString()} selected` : '');
   buildHead(); rebuildDisp(); layout(); render();
-  mapOnApply();
 }
 
 function updateFindbar(){
@@ -2291,7 +1799,7 @@ function selectRow(idx,pos,extend,toggle){
   } else {
     SEL.clear(); SEL.add(idx); anchorPos=pos;
   }
-  selIdx=idx; showDetails(idx); mapOnSelect(idx);
+  selIdx=idx; showDetails(idx);
   updateCountLabel(); render();
 }
 function updateCountLabel(){
@@ -2356,7 +1864,7 @@ function toast(msg){
 function showDetails(idx){
   const r=ROWS[idx]; const det=$('details');
   const fields=[['Index',r[C.idx]],['Type',r[C.cat]],['Group',r[C.grp]],
-    ['Msg kind',r[C.mkind]],['Start',tdisp(r[C.start],r)],['End',tdisp(r[C.end],r)],
+    ['Msg kind',r[C.mkind]],['Start',tdisp(r[C.start])],['End',tdisp(r[C.end])],
     ['Dur',r[C.dur]],['Eye',r[C.eye]],['X1',r[C.x1]],['Y1',r[C.y1]],
     ['X2',r[C.x2]],['Y2',r[C.y2]],['Amplitude',r[C.amp]],['Peak vel',r[C.vel]],
     ['Pupil',r[C.pupil]],['Res X',r[C.resx]],['Res Y',r[C.resy]],['Input',r[C.val]]];
@@ -2402,13 +1910,7 @@ $('search').addEventListener('keydown',e=>{
 });
 $('searchRe').onchange=e=>{F.searchRe=e.target.checked;apply();};
 $('eyeSel').onchange=e=>{F.eye=e.target.value;apply();};
-$('tsMode').onchange=e=>{ setTsMode(e.target.value); };
-function setTsMode(m){
-  if((m==='trial'||m==='win') && !(TRMAP&&TRI)){
-    toast('Classify trials first (Trials ▾)'); $('tsMode').value=TSMODE; return; }
-  TSMODE=m; REL=(m==='rel'); $('tsMode').value=m;
-  updatePlaceholders(); apply();
-}
+$('tsMode').onchange=e=>{ REL=e.target.value==='rel'; updatePlaceholders(); apply(); };
 const onNum=deb(()=>{
   F.tmin=$('tmin').value===''?null:+$('tmin').value;
   F.tmax=$('tmax').value===''?null:+$('tmax').value;
@@ -2438,7 +1940,7 @@ function currentConfig(){
   return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
     tmin:F.tmin, tmax:F.tmax, durFix:F.durFix, durSacc:F.durSacc,
     msgInc:F.msgInc, msgExc:F.msgExc, msgRe:F.msgRe,
-    search:F.search, searchRe:F.searchRe, searchMode:F.searchMode, rel:REL, ts:TSMODE,
+    search:F.search, searchRe:F.searchRe, searchMode:F.searchMode, rel:REL,
     colf:{...F.colf},
     cols:COLS.filter(c=>!c.hidden).map(c=>c.k)};
 }
@@ -2459,9 +1961,7 @@ function applyConfig(cfg){
   F.searchMode=cfg.searchMode||'filter'; $('searchMode').value=F.searchMode;
   F.colf=Object.assign({}, cfg.colf||{}); buildFilterRow();
   if(cfg.colf && Object.values(cfg.colf).some(v=>v)) $('cfrow').classList.remove('off');
-  let ts=cfg.ts||(cfg.rel?'rel':'abs');
-  if((ts==='trial'||ts==='win') && !(TRMAP&&TRI)) ts='abs';   // links outlive analyses
-  TSMODE=ts; REL=(ts==='rel'); $('tsMode').value=ts;
+  REL=!!cfg.rel; $('tsMode').value=REL?'rel':'abs';
   if(cfg.cols){ COLS.forEach(c=>c.hidden=!cfg.cols.includes(c.k));
     buildColMenu(); }
   if(META) updatePlaceholders();
@@ -2502,71 +2002,6 @@ let TRMAP=null;               // the active file's row->trial/AOI mapping
 let TRMAPS={};                // per file id, so switching tabs can't mix them up
 let TRRESS={};                // per file id: the full analysis result
 let TRRES=null;               // last full analysis result
-let TRI=null;                 // active file: trial -> variables and reference times
-let TRIDX={};                 // per file id, same reason as TRMAPS
-
-// Turn one analysis result into the lookups the table needs: the trial
-// variables by trial number, and the times a row can be shown relative to.
-// A variable counts as numeric only if every trial's value parses as a number,
-// so "index" filters with > and <= while "cond" stays a text match.
-function trBuildIndex(res){
-  const names=res.var_names||[], vars=new Map(), t0=new Map(),
-        span=new Map(), aois=new Map();
-  const numeric=names.map(()=>true), width=names.map(n=>n.length);
-  Object.entries(res.trial_vars||{}).forEach(([k,vals])=>{
-    vars.set(+k, vals);
-    vals.forEach((v,i)=>{
-      if(v==='' || isNaN(parseFloat(v)) || !/^\s*-?\d*\.?\d+\s*$/.test(v)) numeric[i]=false;
-      if((''+v).length>width[i]) width[i]=(''+v).length;
-    });
-  });
-  Object.entries(res.trial_times||{}).forEach(([k,t])=>t0.set(+k,t));
-  Object.entries(res.trial_span||{}).forEach(([k,v])=>span.set(+k,v));
-  Object.entries(res.trial_aois||{}).forEach(([k,v])=>aois.set(+k,
-    v.map(a=>({label:a[0], x:a[1], y:a[2], w:a[3], h:a[4], r:a[5]}))));
-  return {names, vars, t0, span, aois,
-          shape:res.aoi_shape||{type:'circle', radius:100}, numeric, width};
-}
-
-// The variable columns follow the active file: a scheme with different
-// variables (or no trials at all) leaves none behind.
-function syncVarCols(){
-  const names=(TRI&&TRI.names)||[];
-  for(let i=COLS.length-1;i>=0;i--){
-    const c=COLS[i];
-    if(c.k.slice(0,2)==='v_' && names.indexOf(c.k.slice(2))<0) COLS.splice(i,1);
-  }
-  let saved={};
-  try{ (JSON.parse(localStorage.getItem('gama.cols')||'[]')||[])
-        .forEach(c=>saved[c.k]=c); }catch(e){}
-  names.forEach((nm,i)=>{
-    const key='v_'+nm;
-    if(COLS.some(c=>c.k===key)) return;
-    const sv=saved[key]||{};
-    const col={k:key, label:nm, num:!!(TRI&&TRI.numeric[i]),
-      w:sv.w||Math.min(200, Math.max(64, 9*(TRI?TRI.width[i]:nm.length)+22)),
-      hidden:!!sv.hidden,
-      get:r=>{ if(!TRMAP||!TRI) return '';
-        const v=TRI.vars.get(TRMAP.trial[r[C.idx]]);
-        return v ? (v[i]===undefined?'':v[i]) : ''; }};
-    const at=COLS.findIndex(c=>c.k==='msg');
-    COLS.splice(at<0?COLS.length:at, 0, col);
-  });
-  buildColMenu(); buildHead();
-}
-
-// The two trial-based timestamp modes only make sense once trials exist.
-function syncTsModes(){
-  const on=!!(TRMAP&&TRI&&TRI.t0.size);
-  const sel=$('tsMode');
-  ['trial','win'].forEach(v=>{
-    const o=sel.querySelector(`option[value="${v}"]`); if(o) o.disabled=!on; });
-  $('gotoMode').querySelector('option[value="trial"]').disabled=!on;
-  if(!on && (TSMODE==='trial'||TSMODE==='win')){
-    TSMODE='abs'; REL=false; sel.value='abs'; updatePlaceholders();
-  }
-  if(!on && $('gotoMode').value==='trial'){ $('gotoMode').value='line'; syncGotoBox(); }
-}
 let TRSCHEMES={};
 
 function trOpen(){
@@ -2861,14 +2296,12 @@ async function trDoPreview(){
 
 function trShowColumns(){
   COLS.forEach(c=>{ if(c.k==='trial'||c.k==='aoi') c.hidden=false; });
-  syncVarCols(); syncTsModes();
   saveColLayout(); buildColMenu(); buildHead();
 }
 function trStore(fileId, res){
   TRMAPS[fileId]={trial:res.row_trial, aoi:res.row_aoi, from:res.row_aoi_from};
   TRRESS[fileId]=res;
-  TRIDX[fileId]=trBuildIndex(res);
-  if(fileId===active){ TRMAP=TRMAPS[fileId]; TRRES=res; TRI=TRIDX[fileId]; }
+  if(fileId===active){ TRMAP=TRMAPS[fileId]; TRRES=res; }
 }
 
 async function trDoApply(){
@@ -3037,22 +2470,11 @@ function paletteActions(){
     add('Load preset: '+n,'Preset',()=>applyConfig(PRESETS[n]),{always:true}));
   // navigation / view
   if(haveFile){
-    add('Scanpath of the selected trial','View',()=>{
-      MAPMODE='scan'; $('mapMode').value='scan'; mapOpen(); });
-    add('Aggregate map of the filtered set','View',()=>{
-      MAPMODE='agg'; $('mapMode').value='agg'; mapOpen(); });
-    add('Go to line…','View',()=>{$('gotoMode').value='line';syncGotoBox();
-      $('goto').focus();$('goto').select();},{key:'Ctrl+G'});
-    if(TRMAP&&TRI) add('Go to trial…','View',()=>{$('gotoMode').value='trial';syncGotoBox();
-      $('goto').focus();$('goto').select();});
+    add('Go to line…','View',()=>{$('goto').focus();$('goto').select();},{key:'Ctrl+G'});
     add('Flag / unflag selected row','Row',()=>{ if(selIdx>=0) toggleFlag(selIdx); },{key:'F'});
   }
-  add('Timestamps: absolute','View',()=>setTsMode('abs'),{always:true});
-  add('Timestamps: relative to file start','View',()=>setTsMode('rel'),{always:true});
-  if(TRMAP&&TRI){
-    add('Timestamps: relative to trial start','View',()=>setTsMode('trial'));
-    add('Timestamps: relative to window onset','View',()=>setTsMode('win'));
-  }
+  add('Timestamps: absolute','View',()=>{$('tsMode').value='abs';$('tsMode').dispatchEvent(new Event('change'));},{always:true});
+  add('Timestamps: relative to file start','View',()=>{$('tsMode').value='rel';$('tsMode').dispatchEvent(new Event('change'));},{always:true});
   add('Theme: dark','View',()=>setTheme('dark'),{always:true});
   add('Theme: light','View',()=>setTheme('light'),{always:true});
   add('Text size: small','View',()=>setFont('s'),{always:true});
@@ -3160,329 +2582,10 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#trExpMenu')&&!e.target.closest('#trExport')) $('trExpMenu').classList.remove('open');
 });
 
-
-// ---- scanpath & aggregate map --------------------------------------------
-// Two drawings over the same screen rectangle: one trial's eye movements in
-// the order they happened, or every fixation in the current view binned into a
-// grid. Both are plain SVG, so "Save SVG" hands you something a figure editor
-// will open. Neither asks the server for anything — the fixations are already
-// in the table, and the trial analysis brought the stimulus positions with it.
-let MAPMODE='scan', mapTrial=null;
-
-function mapIsOpen(){ return $('mapMask').classList.contains('open'); }
-function mapHaveTrials(){ return !!(TRMAP&&TRI&&TRI.span.size); }
-function trialAt(idx){ return (TRMAP && TRMAP.trial[idx]>0) ? TRMAP.trial[idx] : null; }
-function mapScreen(){
-  // The tracker states its display size in the header, so this is right even
-  // with no trials classified; 1080p is only the last resort.
-  const s=(TRRES&&TRRES.screen) || (META&&META.screen) || null;
-  return {w:(s&&s.w)||1920, h:(s&&s.h)||1080};
-}
-function mapOpen(){
-  if(!META){ toast('Open a recording first'); return; }
-  if(MAPMODE==='scan' && selIdx>=0){ const t=trialAt(selIdx); if(t) mapTrial=t; }
-  $('mapMask').classList.add('open');
-  mapRender();
-}
-function mapClose(){ $('mapMask').classList.remove('open'); }
-
-// Every fixation and saccade of one trial, read straight out of the rows. The
-// trial's line span keeps this off the rest of the recording.
-function trialEvents(t){
-  const sp=TRI&&TRI.span.get(t);
-  if(!sp) return null;
-  const fx=[], sc=[];
-  const hi=Math.min(sp[1], ROWS.length-1);
-  for(let i=sp[0];i<=hi;i++){
-    const r=ROWS[i];
-    const g=r[C.grp];
-    if(g!=='FIX' && g!=='SACC') continue;
-    if(TRMAP.trial[r[C.idx]]!==t) continue;
-    if(r[C.cat]==='EFIX'){
-      const x=+r[C.x1], y=+r[C.y1];
-      if(isFinite(x)&&isFinite(y)) fx.push({i:r[C.idx], t:r[C.start],
-        dur:+r[C.dur]||0, x, y, aoi:TRMAP.aoi[r[C.idx]]||''});
-    } else if(r[C.cat]==='ESACC'){
-      const x1=+r[C.x1], y1=+r[C.y1], x2=+r[C.x2], y2=+r[C.y2];
-      if([x1,y1,x2,y2].every(isFinite)) sc.push({i:r[C.idx], t:r[C.start],
-        x1, y1, x2, y2, amp:r[C.amp], aoi:TRMAP.aoi[r[C.idx]]||'',
-        from:TRMAP.from[r[C.idx]]||''});
-    }
-  }
-  return {fx, sc};
-}
-
-// One AOI as SVG, honouring whatever hit-test shape the analysis used.
-function mapAoiShape(a, sx, sy, shape){
-  const cx=sx(a.x), cy=sy(a.y);
-  const typ=(shape&&shape.type)||'circle';
-  // Whatever the hit test was, the stimulus itself gets a dot: under nearest
-  // matching there is no boundary to draw, and without the dot the fixations
-  // would float on an empty screen.
-  const dot=`<circle cx="${cx}" cy="${cy}" r="2.5" class="aoic"/>`;
-  if(typ==='rect' || (typ==='fields' && a.w && a.h)){
-    const w=sx(a.w||(+shape.w||100)), h=sy(a.h||(+shape.h||100));
-    return `<rect x="${cx-w/2}" y="${cy-h/2}" width="${w}" height="${h}" class="aoi"/>`+dot;
-  }
-  if(typ==='nearest') return dot;
-  const r=sx(a.r||(+shape.radius||100));
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" class="aoi"/>`+dot;
-}
-
-function mapSvg(w, h, inner, W){
-  W=W||620;
-  const H=Math.round(W*h/w);
-  return `<svg viewBox="0 0 ${W} ${H}" class="mapsvg" `+
-    `xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">`+
-    `<rect x="0" y="0" width="${W}" height="${H}" class="screen"/>`+
-    `<line x1="${W/2}" y1="0" x2="${W/2}" y2="${H}" class="cross"/>`+
-    `<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" class="cross"/>`+
-    inner+`</svg>`;
-}
-
-function drawScanpath(){
-  const body=$('mapBody');
-  if(!mapHaveTrials()){
-    body.innerHTML='<p class="mapnote">No trials yet — classify them under '+
-      '<b>Trials &#9662;</b> and this will draw the selected one.</p>';
-    $('mapTitle').textContent='Scanpath'; return;
-  }
-  const nums=[...TRI.span.keys()].sort((a,b)=>a-b);
-  if(mapTrial===null || !TRI.span.has(mapTrial)) mapTrial=nums[0];
-  const t=mapTrial, ev=trialEvents(t);
-  const sc=mapScreen(), W=620, H=Math.round(W*sc.h/sc.w);
-  const sx=v=>(v/sc.w)*W, sy=v=>(v/sc.h)*H;
-  const times=TRI.t0.get(t)||[];
-  const base=(times[1]!=null?times[1]:times[0]);
-  const wlo=times[1], whi=times[2];
-  const inWin=e=>!(wlo!=null && e.t<wlo) && !(whi!=null && e.t>whi);
-
-  let g='';
-  (TRI.aois.get(t)||[]).forEach(a=>{
-    g+=mapAoiShape(a, sx, sy, TRI.shape);
-    g+=`<text x="${sx(a.x)}" y="${sy(a.y)-4}" class="aoit">${escapeHtml(a.label)}</text>`;
-  });
-  ev.sc.forEach(s=>{
-    g+=`<line x1="${sx(s.x1)}" y1="${sy(s.y1)}" x2="${sx(s.x2)}" y2="${sy(s.y2)}" `+
-       `class="sacc${inWin(s)?'':' out'}"><title>saccade at `+
-       `${base!=null?(s.t-base)+' ms':s.t} \u00b7 ${s.amp||'?'}\u00b0`+
-       `${s.from||s.aoi?` \u00b7 ${s.from||'\u2013'} \u2192 ${s.aoi||'\u2013'}`:''}`+
-       `</title></line>`;
-  });
-  const nlab=ev.fx.length<=45;
-  ev.fx.forEach((f,k)=>{
-    const r=Math.max(3.5, Math.min(15, Math.sqrt((f.dur||60)/4)));
-    const cls='fix '+(f.aoi?'hit':'miss')+(inWin(f)?'':' out');
-    g+=`<circle cx="${sx(f.x)}" cy="${sy(f.y)}" r="${r}" class="${cls}" `+
-       `data-line="${f.i}"><title>fixation ${k+1} \u00b7 `+
-       `${base!=null?(f.t-base)+' ms':f.t} \u00b7 ${f.dur} ms \u00b7 `+
-       `${f.aoi||'no AOI'} \u00b7 line ${f.i}</title></circle>`;
-    if(nlab && r>=5) g+=`<text x="${sx(f.x)}" y="${sy(f.y)+3}" class="spnum">${k+1}</text>`;
-  });
-
-  const hit=ev.fx.filter(f=>f.aoi).length;
-  const f0=ev.fx.find(f=>f.aoi && inWin(f));
-  const s0=ev.sc.find(s=>s.aoi && inWin(s));
-  const vars=(TRI.vars.get(t)||[]);
-  const chips=TRI.names.map((nm,i)=>
-    `<span>${escapeHtml(nm)}: <b>${escapeHtml(vars[i]===undefined?'':vars[i])}</b></span>`).join('');
-  const rows=[
-    ['Lines', TRI.span.get(t).join(' \u2013 ')],
-    ['Trial time', times[0]+' \u2013 '+times[3]+
-      (times[3]!=null&&times[0]!=null?` (${times[3]-times[0]} ms)`:'')],
-    ['Window', wlo!=null?`${wlo} \u2013 ${whi==null?'?':whi}`:'\u2014'],
-    ['Fixations', `${ev.fx.length} (${hit} in an AOI)`],
-    ['Saccades', ev.sc.length],
-    ['First AOI fixation', f0?`${f0.aoi} at ${base!=null?f0.t-base:f0.t} ms`:'none'],
-    ['First AOI saccade', s0?`${s0.from||'\u2013'} \u2192 ${s0.aoi} at ${base!=null?s0.t-base:s0.t} ms`:'none'],
-  ];
-  $('mapTitle').textContent=`Scanpath \u00b7 trial ${t} of ${nums[nums.length-1]}`;
-  body.innerHTML=`<div class="maprow"><div style="flex:none;width:min(620px,100%)">`+
-    mapSvg(sc.w, sc.h, g, W)+
-    `<p class="mapnote">Circle area is fixation duration, numbers are the order. `+
-    `Green landed in an AOI, red in none, faded fell outside the analysis window. `+
-    `Click one to jump to its line.</p></div>`+
-    `<div class="mapside">${chips?`<div class="mapchips">${chips}</div>`:''}`+
-    `<table>${rows.map(([k,v])=>
-      `<tr><td class="k">${k}</td><td>${escapeHtml(''+v)}</td></tr>`).join('')}</table>`+
-    `<p class="mapnote">${sc.w}\u00d7${sc.h} screen. \u25c0 \u25b6 step through trials; `+
-    `selecting a row in the table jumps here too.</p></div></div>`;
-  body.querySelectorAll('circle.fix').forEach(c=>{
-    c.onclick=()=>{ const i=+c.dataset.line;
-      $('gotoMode').value='line'; syncGotoBox(); gotoLine(i); };
-  });
-}
-
-// Every fixation in the current view, binned over the screen. Respects the
-// filters, so "block 6, distractor present, first 300 ms" is a map of exactly
-// that set.
-function drawAggregate(){
-  const body=$('mapBody');
-  const sc=mapScreen(), W=620, H=Math.round(W*sc.h/sc.w);
-  const NX=48, NY=Math.max(8, Math.round(NX*sc.h/sc.w));
-  const cw=sc.w/NX, ch=sc.h/NY;
-  const cnt=new Int32Array(NX*NY), dwell=new Float64Array(NX*NY);
-  const byAoi=new Map();
-  const trialsSeen=new Set();
-  let nfix=0, tot=0, out=0;
-  for(const r of view){
-    if(r[C.grp]!=='FIX' || r[C.cat]!=='EFIX') continue;
-    const x=+r[C.x1], y=+r[C.y1];
-    if(!isFinite(x)||!isFinite(y)) continue;
-    const d=+r[C.dur]||0;
-    nfix++; tot+=d;
-    if(x<0||y<0||x>=sc.w||y>=sc.h){ out++; continue; }
-    const k=Math.min(NY-1,Math.floor(y/ch))*NX + Math.min(NX-1,Math.floor(x/cw));
-    cnt[k]++; dwell[k]+=d;
-    if(TRMAP){
-      const tn=TRMAP.trial[r[C.idx]];
-      if(tn>0) trialsSeen.add(tn);
-      const lab=TRMAP.aoi[r[C.idx]]||'';
-      const e=byAoi.get(lab)||{n:0,d:0};
-      e.n++; e.d+=d; byAoi.set(lab,e);
-    }
-  }
-  const metric=$('mapMetric').value;
-  const val=metric==='dwell'?dwell:cnt;
-  let max=0;
-  for(let i=0;i<val.length;i++) if(val[i]>max) max=val[i];
-
-  let g='';
-  if(TRI && trialsSeen.size){
-    const seen=new Map();
-    for(const tn of trialsSeen){
-      for(const a of (TRI.aois.get(tn)||[])){
-        const key=a.label+'@'+Math.round(a.x)+','+Math.round(a.y);
-        if(!seen.has(key)) seen.set(key,a);
-      }
-      if(seen.size>=80) break;             // a moving display would flood this
-    }
-    const sx=v=>(v/sc.w)*W, sy=v=>(v/sc.h)*H;
-    seen.forEach(a=>{ g+=mapAoiShape(a, sx, sy, TRI.shape);
-      if(seen.size<=24) g+=`<text x="${sx(a.x)}" y="${sy(a.y)-5}" class="aoit">`+
-        `${escapeHtml(a.label)}</text>`; });
-  }
-  const cellW=W/NX, cellH=H/NY;
-  for(let iy=0;iy<NY;iy++) for(let ix=0;ix<NX;ix++){
-    const v=val[iy*NX+ix];
-    if(!v) continue;
-    const o=(0.10+0.90*Math.log1p(v)/Math.log1p(max)).toFixed(3);
-    const c=cnt[iy*NX+ix];
-    g+=`<rect class="heat" x="${(ix*cellW).toFixed(2)}" y="${(iy*cellH).toFixed(2)}" `+
-       `width="${(cellW+0.6).toFixed(2)}" height="${(cellH+0.6).toFixed(2)}" `+
-       `fill="var(--accent2)" opacity="${o}"><title>${c} fixation${c===1?'':'s'}`+
-       `, ${Math.round(dwell[iy*NX+ix])} ms</title></rect>`;
-  }
-
-  let side='';
-  if(byAoi.size){
-    const rows=[...byAoi.entries()].sort((a,b)=>b[1].n-a[1].n);
-    side+='<h4>By AOI</h4><table>'+
-      '<tr><td class="k">label</td><td class="k">fix</td>'+
-      '<td class="k">share</td><td class="k">mean dur</td></tr>'+
-      rows.map(([lab,e])=>
-      `<tr><td class="k">${escapeHtml(lab||'no AOI')}</td>`+
-      `<td>${e.n.toLocaleString()}</td>`+
-      `<td>${nfix?(100*e.n/nfix).toFixed(1):'0'}%</td>`+
-      `<td>${Math.round(e.d/e.n)} ms</td></tr>`).join('')+'</table>';
-  }
-  side+='<h4>Totals</h4><table>'+
-    `<tr><td class="k">Fixations</td><td>${nfix.toLocaleString()}</td></tr>`+
-    `<tr><td class="k">Total dwell</td><td>${Math.round(tot).toLocaleString()} ms</td></tr>`+
-    `<tr><td class="k">Mean duration</td><td>${nfix?Math.round(tot/nfix):0} ms</td></tr>`+
-    (trialsSeen.size?`<tr><td class="k">Trials covered</td><td>${trialsSeen.size.toLocaleString()}</td></tr>`:'')+
-    (out?`<tr><td class="k">Off screen</td><td>${out.toLocaleString()}</td></tr>`:'')+
-    `<tr><td class="k">Busiest cell</td><td>${metric==='dwell'?Math.round(max)+' ms':max+' fix'}</td></tr>`+
-    '</table>';
-
-  $('mapTitle').textContent='Aggregate map';
-  body.innerHTML=`<div class="maprow"><div style="flex:none;width:min(620px,100%)">`+
-    (nfix?mapSvg(sc.w, sc.h, g, W)
-        :'<p class="mapnote">No fixations in the current view.</p>')+
-    `<div class="mapscale"><span>less</span><span class="bar"></span><span>more</span>`+
-    `<span>\u00b7 ${metric==='dwell'?'dwell time':'fixation count'} per cell, log-scaled`+
-    `\u00b7 ${NX}\u00d7${NY} cells</span></div>`+
-    `<p class="mapnote">Every fixation the filters left in the table, `+
-    `${TRI&&trialsSeen.size?'with the AOI outlines those trials used.':'over the recorded screen.'}`+
-    `</p></div><div class="mapside">${side}</div></div>`;
-}
-
-function mapRender(){
-  if(!mapIsOpen()) return;
-  const scan=MAPMODE==='scan';
-  $('mapPrev').style.display=$('mapNext').style.display=scan?'':'none';
-  $('mapMetric').style.display=scan?'none':'';
-  if(!META){ $('mapBody').innerHTML='<p class="mapnote">Open a recording first.</p>'; return; }
-  scan?drawScanpath():drawAggregate();
-}
-function mapStep(d){
-  if(!mapHaveTrials()) return;
-  const nums=[...TRI.span.keys()].sort((a,b)=>a-b);
-  let at=nums.indexOf(mapTrial);
-  if(at<0) at=0; else at=Math.min(nums.length-1, Math.max(0, at+d));
-  mapTrial=nums[at]; mapRender();
-}
-// The panel is a view of the selection and of the filters, so both feed it.
-function mapOnSelect(idx){
-  if(!mapIsOpen() || MAPMODE!=='scan') return;
-  const t=trialAt(idx);
-  if(t && t!==mapTrial){ mapTrial=t; mapRender(); }
-}
-// Redrawing on every apply() covers the aggregate (which is a picture of the
-// filters) and a file switch (which arrives the same way).
-function mapOnApply(){ if(mapIsOpen()) mapRender(); }
-
-// A saved drawing has to stand on its own, so the handful of themed colours
-// the classes rely on get resolved and written into the file.
-function mapSaveSvg(){
-  const svg=$('mapBody').querySelector('svg');
-  if(!svg){ toast('Nothing to save'); return; }
-  const cs=getComputedStyle(document.body);
-  const V=k=>(cs.getPropertyValue(k)||'').trim()||'#000';
-  const css='.screen{fill:'+V('--bg')+';stroke:'+V('--line')+'}'+
-    '.aoi{fill:none;stroke:'+V('--accent')+';stroke-width:1}'+
-    '.aoic{fill:'+V('--accent')+'}'+
-    '.aoit{fill:'+V('--muted')+';font-size:9px;text-anchor:middle;'+
-      'font-family:system-ui,sans-serif}'+
-    '.sacc{stroke:'+V('--muted')+';stroke-width:1.3;opacity:.8}'+
-    '.sacc.out{opacity:.3;stroke-dasharray:3 3}'+
-    '.fix{stroke:'+V('--panel')+';stroke-width:1}'+
-    '.fix.hit{fill:'+V('--accent2')+'}.fix.miss{fill:#e05252}.fix.out{opacity:.35}'+
-    '.spnum{fill:'+V('--bg')+';font-size:8.5px;font-weight:700;text-anchor:middle;'+
-      'font-family:system-ui,sans-serif}'+
-    '.cross{stroke:'+V('--line')+';stroke-width:1;stroke-dasharray:2 4}';
-  let out=svg.outerHTML
-    .replace('>', '><style>'+css+'</style>')
-    .replace(/var\(--accent2\)/g, V('--accent2'));
-  const f=fileById(active);
-  const name=(f?(f.base||f.name.replace(/\.[^.]+$/,'')):'gama')+
-    (MAPMODE==='scan'?('_trial'+mapTrial+'_scanpath'):'_aggregate_map')+'.svg';
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([out],{type:'image/svg+xml'}));
-  a.download=name; a.click(); URL.revokeObjectURL(a.href);
-  toast('Saved '+name);
-}
-
-$('mapBtn').onclick=mapOpen;
-$('mapCloseBtn').onclick=mapClose;
-$('mapMask').onclick=e=>{ if(e.target===$('mapMask')) mapClose(); };
-$('mapMode').onchange=e=>{ MAPMODE=e.target.value; mapRender(); };
-$('mapMetric').onchange=mapRender;
-$('mapPrev').onclick=()=>mapStep(-1);
-$('mapNext').onclick=()=>mapStep(1);
-$('mapSave').onclick=mapSaveSvg;
-
 // ---- export ----
-// The export takes the mode by name, so a trial-relative view exports
-// trial-relative times instead of quietly reverting to absolute.
-function tsExportMode(){ return TSMODE==='abs' ? false : TSMODE; }
 function currentOpts(){
   let lo=F.tmin, hi=F.tmax;
   if(REL){ if(lo!==null) lo+=TREF; if(hi!==null) hi+=TREF; }
-  // A trial-relative bound has no single absolute equivalent, so it cannot be
-  // handed to the server. Exporting the current view still respects it: that
-  // goes out as an explicit list of lines.
-  if(TSMODE==='trial'||TSMODE==='win') lo=hi=null;
   return {groups:[...F.groups], kinds:[...F.kinds], eye:F.eye,
     tmin:lo, tmax:hi, min_fix:F.durFix, min_sacc:F.durSacc,
     contains:F.msgInc, exclude:F.msgExc, contains_regex:F.msgRe,
@@ -3503,15 +2606,13 @@ async function exportOne(fmt){
   const indices=view.map(r=>r[C.idx]);
   const sidecar=$('sidecarChk').checked && fmt!=='asc';
   download(await post('/api/export',
-    {file:active,indices,format:fmt,relative:tsExportMode(),sidecar,opts:currentOpts()}),
+    {file:active,indices,format:fmt,relative:REL,sidecar,opts:currentOpts()}),
     sidecar?(fname()+'_filtered.zip'):('export.'+fmt));
 }
 async function exportAll(fmt){
   const sidecar=$('sidecarChk').checked && fmt!=='asc';
-  if((TSMODE==='trial'||TSMODE==='win') && (F.tmin!==null||F.tmax!==null))
-    toast('Exporting all files ignores the trial-relative time range');
   download(await post('/api/export_all',
-    {opts:currentOpts(),format:fmt,relative:tsExportMode(),sidecar}),
+    {opts:currentOpts(),format:fmt,relative:REL,sidecar}),
     'edf_export_'+fmt+'.zip');
 }
 function fname(){ const f=fileById(active); return f?f.base||f.name.replace(/\.[^.]+$/,''):'export'; }

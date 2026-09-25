@@ -12,7 +12,7 @@ from io import StringIO
 from urllib.parse import urlparse, parse_qs
 
 from .version import __version__
-from .paths import ICON_BYTES, html_page
+from .paths import ICON_BYTES, ICON_ICO, html_page, css_page
 from .filters import filter_indices
 from .exports import (export_bytes, _opts_from_json, _provenance_bytes,
                       _esc, _HTML_DOC)
@@ -61,7 +61,20 @@ def make_handler(reg, converted_from_line, presets_dir, watcher,
             if route == "/":
                 self._send(200, html_page().encode("utf-8"),
                            "text/html; charset=utf-8")
-            elif route == "/icon.png" or route == "/favicon.ico":
+            elif route == "/styles.css":
+                self._send(200, css_page().encode("utf-8"),
+                           "text/css; charset=utf-8")
+            elif route == "/favicon.ico":
+                # a real .ico is the classic favicon; fall back to the png
+                if ICON_ICO:
+                    self._send(200, ICON_ICO, "image/x-icon",
+                               {"Cache-Control": "max-age=86400"})
+                elif ICON_BYTES:
+                    self._send(200, ICON_BYTES, "image/png",
+                               {"Cache-Control": "max-age=86400"})
+                else:
+                    self._send(404, b"", "text/plain")
+            elif route == "/icon.png":
                 if ICON_BYTES:
                     self._send(200, ICON_BYTES, "image/png",
                                {"Cache-Control": "max-age=86400"})
@@ -221,10 +234,7 @@ def make_handler(reg, converted_from_line, presets_dir, watcher,
             if not req.get("preview") and "row_trial" in res:
                 entry.trials = {"row_trial": res["row_trial"],
                                 "row_aoi": res["row_aoi"],
-                                "row_aoi_from": res["row_aoi_from"],
-                                "var_names": res.get("var_names") or [],
-                                "trial_vars": res.get("trial_vars") or {},
-                                "trial_times": res.get("trial_times") or {}}
+                                "row_aoi_from": res["row_aoi_from"]}
             if req.get("preview"):
                 res.pop("row_trial", None)
                 res.pop("row_aoi", None)

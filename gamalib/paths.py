@@ -39,7 +39,8 @@ def _resource_bytes(name):
 
 
 
-ICON_BYTES = _resource_bytes("icon.png")
+ICON_BYTES = _resource_bytes("icon.png")     # the app icon, served to the web UI
+ICON_ICO = _resource_bytes("icon.ico")       # classic favicon, if one is shipped
 
 
 
@@ -52,8 +53,10 @@ ICON_BYTES = _resource_bytes("icon.png")
 # refresh the browser.
 # ---------------------------------------------------------------------------
 HTML_FILENAME = "index.html"
+CSS_FILENAME = "styles.css"
 
 _HTML_CACHE = None
+_CSS_CACHE = None
 
 
 _HTML_MISSING = """<!DOCTYPE html><html><body style="font:14px sans-serif;
@@ -79,4 +82,18 @@ def html_page():
     text = data.decode("utf-8")
     if getattr(sys, "frozen", False):
         _HTML_CACHE = text          # bundled copy can never change at runtime
+    return text
+
+
+def css_page():
+    """The UI stylesheet: cached when frozen, re-read from disk when developing."""
+    global _CSS_CACHE
+    if _CSS_CACHE is not None:
+        return _CSS_CACHE
+    data = _resource_bytes(CSS_FILENAME)
+    if data is None:
+        return "/* gama: %s not found next to gama.py */" % CSS_FILENAME
+    text = data.decode("utf-8")
+    if getattr(sys, "frozen", False):
+        _CSS_CACHE = text
     return text
