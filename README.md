@@ -1,7 +1,7 @@
 # Gama
 
 <p align="center">
-    <img width="1662" height="826" alt="Screenshot 2026-07-22 at 22-40-48 Gama" src="https://github.com/user-attachments/assets/227e3483-681a-4df4-b2c3-e3767dffb66d" />
+    <img width="1662" height="826" alt="An example screenshot" src="example.png" />
 </p>
 
 A viewer for SR Research's EyeLink `.EDF` files. Through the use of SR Research's supplied `edfapi` library, Gama converts a recording the same way `edf2asc` does, then shows the result in the browser as a sortable, filterable table.
