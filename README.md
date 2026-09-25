@@ -8,7 +8,7 @@ A viewer for SR Research's EyeLink `.EDF` files. Through the use of SR Research'
 
 ## Why
 
-In our lab, the usual loop was: run `edf2asc` and convert the `.EDF` to a readable `.ASC`, open that `.ASC` in a text editor or Excel, then analyse through macros or other means. The excel import function that we became accustomed to tended to not respect column contexts, most likely because the converter didn't either. Additionally, if one was not interested in using the Experiment Viewer paid software, extra lines were included that could cloud data. Gama does the conversion and gives readable data immediately. Gama was built to replace the latter half of our labs pipeline rather than the actual decoding (I couldn't figure it out).
+In our lab, the usual loop was: run `edf2asc` and convert the `.EDF` to a readable `.ASC`, open that `.ASC` in a text editor or Excel, then analyse through macros or other means. The excel import function that we became accustomed to tended to not respect column contexts, most likely because the converter didn't either. Additionally, if one was not interested in using the Experiment Viewer paid software, extra lines were included that could cloud data. Gama does the conversion and gives readable, filterable data immediately. Gama was built to replace the latter half of our labs pipeline rather than the actual decoding (I couldn't figure it out).
 
 Gama uses the real `edfapi` through ctypes (accessed through the `eyelinkio` python package), and the output is byte-for-byte identical to `edf2asc` (if you output `.ASC`) on the files I've tested. If you export everything with no filters you get exactly the file `edf2asc` would have produced.
 
