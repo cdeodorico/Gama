@@ -21,7 +21,7 @@ Gama uses the real `edfapi` through ctypes (accessed through the `eyelinkio` pyt
 pip install eyelinkio
 ```
 
-Windows, macOS and Linux all work (as far as I know).
+Windows works perfectly, MacOS is being actively worked on, and I haven't tested linux compatibility yet.
 
 ## Running it
 
