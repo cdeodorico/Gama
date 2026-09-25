@@ -65,7 +65,7 @@ With one input `--export` is a filename; with several it's a folder and you get
 
 Filters:
 
-| flag | what it does |
+| Flag | What it does |
 | --- | --- |
 | `--only` / `--hide` | categories: `PREAMBLE HEADER END INPUT MSG FIX SACC BLINK` |
 | `--msg-kinds` | `experiment`, `config`, `cal`, `draw` |
@@ -91,7 +91,7 @@ It reads experimental messages. I'm not going to assume everyone labels things t
 
 ### What you point it at
 
-| | |
+| Option | What it points to |
 | --- | --- |
 | **Trial start / end** | The messages that open and close a trial. Whatever trails the marker becomes per-trial variables, so `TRIAL_START index=1 block=6_True type=Relational Distractor` hands you `index`, `block` and `type` columns. |
 | **Extra variables** | Other messages inside the trial worth harvesting - a metadata line, or the result line with accuracy and RT on it. Add as many as you want. |
