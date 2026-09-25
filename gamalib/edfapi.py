@@ -11,14 +11,54 @@ import sys
 # ---------------------------------------------------------------------------
 # edfapi access (cross-platform) via eyelinkio's ctypes wrapper.
 # ---------------------------------------------------------------------------
+def _prepare_frozen_edfapi():
+    """When frozen, make eyelinkio's bundled native library loadable.
+
+    eyelinkio locates its library relative to the eyelinkio package (``.. /
+    libedfapi/<platform>/...``), which the spec reproduces inside the bundle.
+    But the Windows ``edfapi64.dll`` also depends on ``zlibwapi.dll`` sitting
+    beside it, and Windows only finds that if the folder is on the DLL search
+    path. Add every libedfapi sub-folder so the dependency resolves.
+    """
+    root = getattr(sys, "_MEIPASS", None)
+    if not root:
+        return
+    base = os.path.join(root, "libedfapi")
+    if not os.path.isdir(base):
+        return
+    dirs = [base]
+    for r, _sub, _files in os.walk(base):
+        dirs.append(r)
+    for d in dirs:
+        try:
+            if hasattr(os, "add_dll_directory"):    # Windows, Python 3.8+
+                os.add_dll_directory(d)
+        except (OSError, FileNotFoundError):
+            pass
+    # also expose it on PATH as a belt-and-braces fallback
+    os.environ["PATH"] = os.pathsep.join(
+        dirs + [os.environ.get("PATH", "")])
+
+
 def _load_edfapi():
     """Import the eyelinkio ctypes wrapper around the real edfapi library."""
-    for p in (
-        "/usr/local/lib/python3.12/dist-packages",
-        "/usr/lib/python3/dist-packages",
-    ):
-        if os.path.isdir(p) and p not in sys.path:
-            sys.path.insert(0, p)
+    if getattr(sys, "frozen", False):
+        _prepare_frozen_edfapi()
+    else:
+        # From source: help the interpreter find a system site-packages install
+        # if it isn't already on the path (common on Linux). When frozen,
+        # eyelinkio is bundled into the app and these paths must NOT be added.
+        import sysconfig
+        candidates = [sysconfig.get_paths().get("purelib"),
+                      sysconfig.get_paths().get("platlib")]
+        try:
+            import site
+            candidates += list(getattr(site, "getsitepackages", lambda: [])())
+        except Exception:
+            pass
+        for p in candidates:
+            if p and os.path.isdir(p) and p not in sys.path:
+                sys.path.append(p)
     try:
         from eyelinkio.edf import _edf2py as E
     except Exception as exc:  # pragma: no cover - environment specific
@@ -27,6 +67,8 @@ def _load_edfapi():
             "Install it with `pip install eyelinkio` (it bundles the SR "
             "Research edfapi library), or set EYELINKIO_USE_INSTALLED_EDFAPI="
             "true to use a system-installed edfapi.\n"
+            "If this is a frozen build, rebuild with the current gama.spec so "
+            "eyelinkio and its libedfapi library are collected.\n"
             f"Original error: {exc!r}"
         )
     return E

@@ -83,5 +83,35 @@ except Exception as exc:
     _import_failed(exc)
 
 
+def _run():
+    # When frozen and launched by double-click, an unhandled error would close
+    # the console before it could be read. Catch it, write a log next to the
+    # executable, show it, and wait for a keypress so the window stays open.
+    try:
+        main()
+    except SystemExit:
+        raise
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        import traceback
+        tb = traceback.format_exc()
+        sys.stderr.write("\ngama hit an error and has to stop:\n\n" + tb + "\n")
+        if getattr(sys, "frozen", False):
+            try:
+                log = os.path.join(os.path.dirname(sys.executable),
+                                   "gama-error.log")
+                with open(log, "w", encoding="utf-8") as fh:
+                    fh.write(tb)
+                sys.stderr.write("A copy was saved to:\n  %s\n" % log)
+            except OSError:
+                pass
+            try:
+                input("\nPress Enter to close this window… ")
+            except EOFError:
+                pass
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
-    main()
+    _run()
